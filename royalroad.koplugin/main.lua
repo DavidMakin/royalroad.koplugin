@@ -10,8 +10,17 @@ local Button = require("ui/widget/button")
 local Blitbuffer = require("ffi/blitbuffer")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local FrameContainer = require("ui/widget/container/framecontainer")
+local HorizontalGroup = require("ui/widget/horizontalgroup")
+local HorizontalSpan = require("ui/widget/horizontalspan")
+local ImageWidget = require("ui/widget/imagewidget")
+local InputContainer = require("ui/widget/container/inputcontainer")
+local Menu = require("ui/widget/menu")
+local TextBoxWidget = require("ui/widget/textboxwidget")
 local VerticalGroup = require("ui/widget/verticalgroup")
+local VerticalSpan = require("ui/widget/verticalspan")
 local TextWidget = require("ui/widget/textwidget")
+local Geom = require("ui/geometry")
+local GestureRange = require("ui/gesturerange")
 local Font = require("ui/font")
 local Size = require("ui/size")
 local logger = require("logger")
@@ -24,6 +33,235 @@ local socket = require("socket")
 local http = require("socket.http")
 local ltn12 = require("ltn12")
 local Device = require("device")
+
+local STORY_COVER_HEIGHT = 100
+local STORY_COVER_WIDTH  = math.floor(STORY_COVER_HEIGHT * 2 / 3)
+local STORY_ITEM_PAD     = 8
+
+local function extractEpubCover(epub_path)
+    local ok, Archiver = pcall(require, "ffi/archiver")
+    if not ok then return nil end
+    local arc = Archiver.Reader:new()
+    if not arc:open(epub_path) then return nil end
+    local data
+    for entry in arc:iterate() do
+        if entry.mode == "file" and entry.path:match("^cover%.[a-z]+$") then
+            data = arc:extractToMemory(entry.path)
+            break
+        end
+    end
+    arc:close()
+    return data
+end
+
+local StoryListItem = InputContainer:extend{
+    story       = nil,
+    width       = nil,
+    height      = nil,
+    menu        = nil,
+    show_parent = nil,
+}
+
+function StoryListItem:init()
+    self.dimen = Geom:new{ w = self.width, h = self.height }
+    self.ges_events = {
+        TapSelect = {
+            GestureRange:new{ ges = "tap", range = self.dimen },
+        },
+    }
+
+    local inner_cover
+    if self.story.cover_bb then
+        inner_cover = ImageWidget:new{
+            image  = self.story.cover_bb,
+            width  = STORY_COVER_WIDTH,
+            height = STORY_COVER_HEIGHT,
+            alpha  = true,
+        }
+    else
+        local initials = (self.story.title or "?"):sub(1, 2):upper()
+        inner_cover = CenterContainer:new{
+            dimen = Geom:new{ w = STORY_COVER_WIDTH, h = STORY_COVER_HEIGHT },
+            TextWidget:new{
+                text    = initials,
+                face    = Font:getFace("smalltfont"),
+                bold    = true,
+                fgcolor = Blitbuffer.COLOR_WHITE,
+            },
+        }
+    end
+
+    local cover_widget = FrameContainer:new{
+        width      = STORY_COVER_WIDTH,
+        height     = STORY_COVER_HEIGHT,
+        padding    = 0,
+        bordersize = 1,
+        background = self.story.cover_bb and Blitbuffer.COLOR_WHITE or Blitbuffer.gray(0.6),
+        inner_cover,
+    }
+
+    local text_width = self.width - STORY_COVER_WIDTH - STORY_ITEM_PAD * 3
+    local story = self.story
+    local info_group = VerticalGroup:new{ align = "left" }
+
+    table.insert(info_group, TextBoxWidget:new{
+        text  = story.title or "",
+        face  = Font:getFace("smalltfont"),
+        width = text_width,
+        bold  = true,
+    })
+    if story.author and story.author ~= "" then
+        table.insert(info_group, VerticalSpan:new{ width = 2 })
+        table.insert(info_group, TextWidget:new{
+            text      = story.author,
+            face      = Font:getFace("smallffont"),
+            max_width = text_width,
+            fgcolor   = Blitbuffer.COLOR_DARK_GRAY,
+        })
+    end
+    local n_chapters = story.chapter_urls and #story.chapter_urls or 0
+    if n_chapters > 0 then
+        table.insert(info_group, VerticalSpan:new{ width = 2 })
+        table.insert(info_group, TextWidget:new{
+            text      = T(_("%1 chapters"), n_chapters),
+            face      = Font:getFace("smallffont"),
+            max_width = text_width,
+            fgcolor   = Blitbuffer.COLOR_DARK_GRAY,
+        })
+    end
+
+    local TopContainer = require("ui/widget/container/topcontainer")
+    self[1] = FrameContainer:new{
+        width      = self.width,
+        height     = self.height,
+        padding    = 0,
+        margin     = 0,
+        bordersize = 0,
+        background = Blitbuffer.COLOR_WHITE,
+        VerticalGroup:new{
+            align = "left",
+            VerticalSpan:new{ width = STORY_ITEM_PAD },
+            HorizontalGroup:new{
+                align = "top",
+                HorizontalSpan:new{ width = STORY_ITEM_PAD },
+                cover_widget,
+                HorizontalSpan:new{ width = STORY_ITEM_PAD },
+                TopContainer:new{
+                    dimen = Geom:new{ w = text_width, h = STORY_COVER_HEIGHT },
+                    info_group,
+                },
+            },
+            VerticalSpan:new{ width = STORY_ITEM_PAD },
+        },
+    }
+end
+
+function StoryListItem:update()
+    self:init()
+    UIManager:setDirty(self.show_parent, function()
+        return "ui", self.dimen
+    end)
+end
+
+function StoryListItem:onTapSelect()
+    if self.menu then
+        self.menu:onStorySelect(self.story)
+    end
+    return true
+end
+
+local GRID_COLS     = 3
+local GRID_CELL_GAP = 6
+local GRID_ROW_GAP  = 8
+
+local StoryCoverCell = InputContainer:extend{
+    story       = nil,
+    cell_width  = nil,
+    cell_height = nil,
+    cover_width = nil,
+    cover_height = nil,
+    show_parent = nil,
+    menu        = nil,
+}
+
+function StoryCoverCell:init()
+    self.dimen = Geom:new{ w = self.cell_width, h = self.cell_height }
+    self.ges_events = {
+        TapSelect = {
+            GestureRange:new{ ges = "tap", range = self.dimen },
+        },
+    }
+
+    local inner_cover
+    if self.story.cover_bb then
+        inner_cover = ImageWidget:new{
+            image  = self.story.cover_bb,
+            width  = self.cover_width,
+            height = self.cover_height,
+            alpha  = true,
+        }
+    else
+        local initials = (self.story.title or "?"):sub(1, 2):upper()
+        inner_cover = CenterContainer:new{
+            dimen = Geom:new{ w = self.cover_width, h = self.cover_height },
+            TextWidget:new{
+                text    = initials,
+                face    = Font:getFace("smalltfont"),
+                bold    = true,
+                fgcolor = Blitbuffer.COLOR_WHITE,
+            },
+        }
+    end
+
+    local cover_widget = FrameContainer:new{
+        width      = self.cover_width,
+        height     = self.cover_height,
+        padding    = 0,
+        bordersize = 1,
+        background = self.story.cover_bb and Blitbuffer.COLOR_WHITE or Blitbuffer.gray(0.6),
+        inner_cover,
+    }
+
+    local title_height = math.ceil(14 * 1.3) * 2
+    local title_widget = TextBoxWidget:new{
+        text      = self.story.title or "",
+        face      = Font:getFace("smallffont", 14),
+        width     = self.cover_width,
+        height    = title_height,
+        alignment = "center",
+    }
+
+    self[1] = FrameContainer:new{
+        width      = self.cell_width,
+        height     = self.cell_height,
+        padding    = GRID_CELL_GAP,
+        bordersize = 0,
+        background = Blitbuffer.COLOR_WHITE,
+        CenterContainer:new{
+            dimen = Geom:new{ w = self.cover_width, h = self.cover_height + 4 + title_height },
+            VerticalGroup:new{
+                align = "center",
+                cover_widget,
+                VerticalSpan:new{ width = 4 },
+                title_widget,
+            },
+        },
+    }
+end
+
+function StoryCoverCell:update()
+    self:init()
+    UIManager:setDirty(self.show_parent, function()
+        return "ui", self.dimen
+    end)
+end
+
+function StoryCoverCell:onTapSelect()
+    if self.menu then
+        self.menu:onStorySelect(self.story)
+    end
+    return true
+end
 
 local RoyalRoadDownloader = WidgetContainer:extend{
     name = "royalroad",
@@ -47,6 +285,7 @@ function RoyalRoadDownloader:loadSettings()
     self.download_dir = self.settings:readSetting("download_dir", self.default_download_dir)
     self.use_epub = self.settings:readSetting("use_epub", true)
     self.rate_limit_delay = self.settings:readSetting("rate_limit_delay", 1.5)
+    self.manage_view_mode = self.settings:readSetting("manage_view_mode", "list")
 end
 
 function RoyalRoadDownloader:saveSettings()
@@ -54,6 +293,7 @@ function RoyalRoadDownloader:saveSettings()
     self.settings:saveSetting("download_dir", self.download_dir)
     self.settings:saveSetting("use_epub", self.use_epub)
     self.settings:saveSetting("rate_limit_delay", self.rate_limit_delay)
+    self.settings:saveSetting("manage_view_mode", self.manage_view_mode)
     self.settings:flush()
 end
 
@@ -194,6 +434,30 @@ function RoyalRoadDownloader:addToMainMenu(menu_items)
                             self:setRateLimit()
                         end,
                     },
+                    {
+                        text_func = function()
+                            local label = self.manage_view_mode == "mosaic" and _("Cover mosaic") or _("List")
+                            return T(_("Manage view: %1"), label)
+                        end,
+                        sub_item_table = {
+                            {
+                                text = _("List"),
+                                checked_func = function() return self.manage_view_mode == "list" end,
+                                callback = function()
+                                    self.manage_view_mode = "list"
+                                    self:saveSettings()
+                                end,
+                            },
+                            {
+                                text = _("Cover mosaic"),
+                                checked_func = function() return self.manage_view_mode == "mosaic" end,
+                                callback = function()
+                                    self.manage_view_mode = "mosaic"
+                                    self:saveSettings()
+                                end,
+                            },
+                        },
+                    },
                 },
             },
         },
@@ -252,7 +516,6 @@ function RoyalRoadDownloader:chooseDownloadFolder()
 end
 
 function RoyalRoadDownloader:openDownloadsFolder()
-    -- Create directory if needed
     if not lfs.attributes(self.download_dir, "mode") then
         lfs.mkdir(self.download_dir)
     end
@@ -266,6 +529,278 @@ function RoyalRoadDownloader:openDownloadsFolder()
     else
         FileManager:showFiles(self.download_dir)
     end
+end
+
+function RoyalRoadDownloader:manageDownloads()
+    if self:countDownloadedStories() == 0 then
+        UIManager:show(InfoMessage:new{
+            text    = _("No downloaded stories."),
+            timeout = 3,
+        })
+        return
+    end
+
+    local item_table = {}
+    for fiction_id, story in pairs(self.downloaded_stories) do
+        table.insert(item_table, {
+            fiction_id   = fiction_id,
+            title        = story.title or "Unknown",
+            author       = story.author,
+            chapter_urls = story.chapter_urls,
+            epub_path    = story.epub_path,
+            text         = story.title or "Unknown",
+        })
+    end
+    table.sort(item_table, function(a, b)
+        return (a.title or "") < (b.title or "")
+    end)
+
+    local item_height = STORY_COVER_HEIGHT + STORY_ITEM_PAD * 2
+    local downloader  = self
+
+    if self.manage_view_mode == "mosaic" then
+        local screen_w   = Device.screen:getWidth()
+        local cell_gap   = GRID_CELL_GAP
+        local cell_w     = math.floor((screen_w - cell_gap * (GRID_COLS - 1)) / GRID_COLS)
+        local cover_w    = cell_w - GRID_CELL_GAP * 2
+        local cover_h    = math.floor(cover_w * 3 / 2)
+        local title_h    = math.ceil(14 * 1.3) * 2
+        local cell_h     = cover_h + 4 + title_h + GRID_CELL_GAP * 2
+
+        local StoryMosaicMenu = Menu:extend{
+            _items_pending = {},
+        }
+
+        function StoryMosaicMenu:_recalculateDimen()
+            local available_h = self.inner_dimen and self.inner_dimen.h or (Device.screen:getHeight() - 100)
+            local rows_per_page = math.max(1, math.floor(available_h / (cell_h + GRID_ROW_GAP)))
+            self.perpage   = rows_per_page * GRID_COLS
+            self.page_num  = math.ceil(#self.item_table / self.perpage)
+            if self.page_num > 0 and self.page > self.page_num then
+                self.page = self.page_num
+            end
+            self.item_width  = self.inner_dimen and self.inner_dimen.w or screen_w
+            self.item_height = cell_h
+            self.item_dimen  = Geom:new{ x = 0, y = 0, w = self.item_width, h = self.item_height }
+        end
+
+        function StoryMosaicMenu:updateItems(select_number)
+            self.layout = {}
+            self.item_group:clear()
+            local old_dimen = self.dimen and self.dimen:copy()
+            self:_recalculateDimen()
+            self.page_info:resetLayout()
+            self.return_button:resetLayout()
+            self._items_pending = {}
+
+            local idx_offset = (self.page - 1) * self.perpage
+            local rows_per_page = self.perpage / GRID_COLS
+
+            for row_i = 1, rows_per_page do
+                local row = HorizontalGroup:new{ align = "top" }
+                local row_layout = {}
+                for col = 1, GRID_COLS do
+                    local entry = self.item_table[idx_offset + (row_i - 1) * GRID_COLS + col]
+                    if entry then
+                        local cell = StoryCoverCell:new{
+                            story        = entry,
+                            cell_width   = cell_w,
+                            cell_height  = cell_h,
+                            cover_width  = cover_w,
+                            cover_height = cover_h,
+                            show_parent  = self.show_parent,
+                            menu         = self,
+                        }
+                        table.insert(row, cell)
+                        table.insert(row_layout, cell)
+                        if col < GRID_COLS then
+                            table.insert(row, HorizontalSpan:new{ width = cell_gap })
+                        end
+                        if not entry.cover_bb and entry.epub_path and lfs.attributes(entry.epub_path, "mode") then
+                            table.insert(self._items_pending, { entry = entry, widget = cell })
+                        end
+                    end
+                end
+                table.insert(self.item_group, row)
+                table.insert(self.layout, row_layout)
+                table.insert(self.item_group, VerticalSpan:new{ width = GRID_ROW_GAP })
+            end
+
+            self:updatePageInfo(select_number)
+            UIManager:setDirty(self.show_parent, function()
+                local refresh_dimen = old_dimen and old_dimen:combine(self.dimen) or self.dimen
+                return "ui", refresh_dimen
+            end)
+
+            if #self._items_pending > 0 then
+                UIManager:scheduleIn(0.1, function() self:_loadCovers() end)
+            end
+        end
+
+        function StoryMosaicMenu:_loadCovers()
+            local RenderImage = require("ui/renderimage")
+            for _, pending in ipairs(self._items_pending) do
+                local entry  = pending.entry
+                local widget = pending.widget
+                if not entry.cover_bb then
+                    local cover_data = extractEpubCover(entry.epub_path)
+                    if cover_data then
+                        local ok, bb = pcall(function()
+                            return RenderImage:renderImageData(
+                                cover_data, #cover_data, false, cover_w, cover_h)
+                        end)
+                        if ok and bb then
+                            entry.cover_bb = bb
+                            widget:update()
+                        end
+                    end
+                end
+            end
+            self._items_pending = {}
+        end
+
+        function StoryMosaicMenu:onStorySelect(story)
+            downloader:showStoryOptions(story.fiction_id)
+        end
+
+        function StoryMosaicMenu:onCloseWidget()
+            for _, entry in ipairs(self.item_table) do
+                if entry.cover_bb then
+                    entry.cover_bb:free()
+                    entry.cover_bb = nil
+                end
+            end
+            Menu.onCloseWidget(self)
+        end
+
+        local menu = StoryMosaicMenu:new{
+            covers_fullscreen  = true,
+            is_borderless      = true,
+            is_popout          = false,
+            title              = T(_("Downloads (%1)"), #item_table),
+            item_table         = item_table,
+            title_bar_fm_style = true,
+        }
+        downloader.manage_menu = menu
+        UIManager:show(menu)
+        return
+    end
+
+    local StoryListMenu = Menu:extend{
+        _items_pending = {},
+    }
+
+    function StoryListMenu:_recalculateDimen()
+        local available_h = self.inner_dimen and self.inner_dimen.h or (Device.screen:getHeight() - 100)
+        self.perpage     = math.max(1, math.floor(available_h / item_height))
+        self.page_num    = math.ceil(#self.item_table / self.perpage)
+        if self.page_num > 0 and self.page > self.page_num then
+            self.page = self.page_num
+        end
+        self.item_width  = self.inner_dimen and self.inner_dimen.w or Device.screen:getWidth()
+        self.item_height = item_height
+        self.item_dimen  = Geom:new{ x = 0, y = 0, w = self.item_width, h = self.item_height }
+    end
+
+    function StoryListMenu:updateItems(select_number)
+        self.layout = {}
+        self.item_group:clear()
+        local old_dimen = self.dimen and self.dimen:copy()
+        self:_recalculateDimen()
+        self.page_info:resetLayout()
+        self.return_button:resetLayout()
+        self._items_pending = {}
+
+        local idx_offset = (self.page - 1) * self.perpage
+        for i = 1, self.perpage do
+            local entry = self.item_table[idx_offset + i]
+            if not entry then break end
+
+            local w      = self.item_width or Device.screen:getWidth()
+            local widget = StoryListItem:new{
+                story       = entry,
+                width       = w,
+                height      = item_height,
+                show_parent = self.show_parent,
+                menu        = self,
+            }
+            table.insert(self.item_group, widget)
+
+            if i < self.perpage and (idx_offset + i) < #self.item_table then
+                local LineWidget = require("ui/widget/linewidget")
+                table.insert(self.item_group, LineWidget:new{
+                    dimen      = Geom:new{ w = w, h = Size.line.thin },
+                    background = Blitbuffer.COLOR_LIGHT_GRAY,
+                })
+            end
+
+            table.insert(self.layout, { widget })
+
+            if not entry.cover_bb and entry.epub_path and lfs.attributes(entry.epub_path, "mode") then
+                table.insert(self._items_pending, { entry = entry, widget = widget })
+            end
+        end
+
+        self:updatePageInfo(select_number)
+        UIManager:setDirty(self.show_parent, function()
+            local refresh_dimen = old_dimen and old_dimen:combine(self.dimen) or self.dimen
+            return "ui", refresh_dimen
+        end)
+
+        if #self._items_pending > 0 then
+            UIManager:scheduleIn(0.1, function()
+                self:_loadCovers()
+            end)
+        end
+    end
+
+    function StoryListMenu:_loadCovers()
+        local RenderImage = require("ui/renderimage")
+        for _, pending in ipairs(self._items_pending) do
+            local entry  = pending.entry
+            local widget = pending.widget
+            if not entry.cover_bb then
+                local cover_data = extractEpubCover(entry.epub_path)
+                if cover_data then
+                    local ok, bb = pcall(function()
+                        return RenderImage:renderImageData(
+                            cover_data, #cover_data, false,
+                            STORY_COVER_WIDTH, STORY_COVER_HEIGHT)
+                    end)
+                    if ok and bb then
+                        entry.cover_bb = bb
+                        widget:update()
+                    end
+                end
+            end
+        end
+        self._items_pending = {}
+    end
+
+    function StoryListMenu:onStorySelect(story)
+        downloader:showStoryOptions(story.fiction_id)
+    end
+
+    function StoryListMenu:onCloseWidget()
+        for _, entry in ipairs(self.item_table) do
+            if entry.cover_bb then
+                entry.cover_bb:free()
+                entry.cover_bb = nil
+            end
+        end
+        Menu.onCloseWidget(self)
+    end
+
+    local menu = StoryListMenu:new{
+        covers_fullscreen  = true,
+        is_borderless      = true,
+        is_popout          = false,
+        title              = T(_("Downloads (%1)"), #item_table),
+        item_table         = item_table,
+        title_bar_fm_style = true,
+    }
+    downloader.manage_menu = menu
+    UIManager:show(menu)
 end
 
 function RoyalRoadDownloader:downloadStory()
@@ -301,6 +836,11 @@ end
 
 function RoyalRoadDownloader:processFiction(fiction_id)
     logger.info("Royal Road: Processing fiction ID:", fiction_id)
+
+    if self.downloaded_stories[fiction_id] then
+        self:checkSingleStoryForUpdates(fiction_id)
+        return
+    end
 
     UIManager:show(InfoMessage:new{
         text = T(_("Fetching story %1..."), fiction_id),
@@ -618,10 +1158,27 @@ function RoyalRoadDownloader:downloadNextChapter(state, i)
     if state.cancelled then
         UIManager:close(state.progress_dialog)
         self:allowScreenSleep()
-        UIManager:show(InfoMessage:new{
-            text = _("Download cancelled."),
-            timeout = 3,
-        })
+        if #state.chapters_data > 0 then
+            local fetched_urls = {}
+            for j = 1, #state.chapters_data do
+                fetched_urls[j] = state.chapter_urls[j]
+            end
+            if self.use_epub then
+                self:saveAsEPUB(state.fiction_id, state.story_title, state.author, state.chapters_data, state.cover_image, fetched_urls, state.cover_url)
+            else
+                self:saveAsHTML(state.fiction_id, state.story_title, state.author, state.chapters_data)
+            end
+            UIManager:show(InfoMessage:new{
+                text = T(_("Download cancelled.\nSaved %1 of %2 chapters.\nDownload again to get the rest."),
+                    #state.chapters_data, state.total_chapters),
+                timeout = 5,
+            })
+        else
+            UIManager:show(InfoMessage:new{
+                text = _("Download cancelled."),
+                timeout = 3,
+            })
+        end
         return
     end
 
@@ -1571,49 +2128,6 @@ function RoyalRoadDownloader:rebuildEPUBWithNewChapters(state)
     if state.on_complete then
         state.on_complete()
     end
-end
-
--- Manage downloaded stories
-function RoyalRoadDownloader:manageDownloads()
-    if self:countDownloadedStories() == 0 then
-        UIManager:show(InfoMessage:new{
-            text = _("No downloaded stories.\n\nDownload a story to manage it here."),
-        })
-        return
-    end
-
-    local Menu = require("ui/widget/menu")
-
-    local menu_items = {}
-    for fiction_id, story in pairs(self.downloaded_stories) do
-        local chapter_count = #(story.chapter_urls or {})
-        table.insert(menu_items, {
-            text = T(_("%1 (%2 chapters)"), story.title, chapter_count),
-            fiction_id = fiction_id,
-            callback = function()
-                self:showStoryOptions(fiction_id)
-            end,
-        })
-    end
-
-    -- Sort by title
-    table.sort(menu_items, function(a, b)
-        return a.text < b.text
-    end)
-
-    self.manage_menu = Menu:new{
-        title = _("Manage Downloads"),
-        item_table = menu_items,
-        width = Device.screen:getWidth() - 100,
-        height = Device.screen:getHeight() - 100,
-        onMenuChoice = function(_, item)
-            if item.callback then item.callback() end
-        end,
-        close_callback = function()
-            UIManager:close(self.manage_menu)
-        end,
-    }
-    UIManager:show(self.manage_menu)
 end
 
 function RoyalRoadDownloader:showStoryOptions(fiction_id)
