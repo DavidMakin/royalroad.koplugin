@@ -76,7 +76,43 @@ KOReader plugins follow a specific structure:
 
 ## Developer Documentation
 
-KOReader API docs: https://koreader.rocks/doc/
+Full documentation: https://koreader.rocks/doc/
+
+### Key Modules for Plugin Development
+
+| Module | Purpose |
+|--------|---------|
+| `koplugin.*` | Plugin base classes and examples (HelloWorld, wallabag, exporter) |
+| `ui.widget.*` | UI widgets (Button, Dialog, InputDialog, InfoMessage, TextWidget, etc.) |
+| `ui.widget.container.*` | Layout containers (WidgetContainer, CenterContainer, VerticalGroup, etc.) |
+| `ui.uimanager` | Widget display and event management |
+| `luasettings` | Settings persistence |
+| `datastorage` | Directory paths for data/settings |
+| `ffi.archiver` | ZIP/epub creation |
+| `ffi.util` | File operations |
+| `gettext` | Internationalization |
+| `ui.trapper` | Progress dialogs and UI interaction for background jobs |
+| `logger` | Logging |
+| `util` | General utilities |
+| `dispatcher` | Event dispatching |
+| `ui.data.css_tweaks` | CSS customization |
+| `socketutil` | HTTP request utilities |
+
+### Important Topics
+
+- [Development Guide](topics/Development_guide.md.html) - Getting started with KOReader development
+- [Events](topics/Events.md.html) - Event system for plugin communication
+- [Unit Tests](topics/Unit_tests.md.html) - Testing patterns
+- [DataStore](topics/DataStore.md.html) - Data persistence
+- [Hacking](topics/Hacking.md.html) - Advanced customization
+
+### Plugin Examples in KOReader
+
+Reference implementations for plugin patterns:
+- `koplugin.HelloWorld` - Minimal plugin skeleton
+- `koplugin.QRClipboard` - Simple plugin with QR functionality
+- `koplugin.wallabag` - Plugin that fetches web content
+- `koplugin.exporter` - Plugin for exporting data (similar to EPUB export)
 
 ## Dependencies
 
