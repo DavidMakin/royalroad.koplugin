@@ -163,7 +163,9 @@ function RoyalRoadDownloader:addToMainMenu(menu_items)
                         end,
                     },
                     {
-                        text = _("Download format"),
+                        text_func = function()
+                            return T(_("Download format: %1"), self.use_epub and _("EPUB") or _("HTML"))
+                        end,
                         sub_item_table = {
                             {
                                 text = _("EPUB"),
