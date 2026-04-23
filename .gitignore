@@ -1,0 +1,23 @@
+# KOReader test directories
+royalroad/
+ao3/
+*.epub
+*.zip
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+crash.log
+
+# Testing
+test_*.lua
