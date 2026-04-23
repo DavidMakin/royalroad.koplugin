@@ -74,6 +74,10 @@ KOReader plugins follow a specific structure:
 - Settings: `{KOReader settings dir}/royalroad.lua`
 - Logs: KOReader's standard log output (crash.log)
 
+## Developer Documentation
+
+KOReader API docs: https://koreader.rocks/doc/
+
 ## Dependencies
 
 All dependencies provided by KOReader:
