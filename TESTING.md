@@ -1,6 +1,8 @@
-# Testing the Plugin Locally on macOS
+# Testing the Plugin Locally
 
 ## Option 1: Download Pre-built KOReader (Recommended)
+
+### macOS
 
 1. **Download KOReader for macOS:**
    - Visit [KOReader Releases](https://github.com/koreader/koreader/releases/)
@@ -29,9 +31,33 @@
 
 5. **Run KOReader** and the plugin will appear in the Tools menu
 
+### Linux
+
+1. **Download KOReader for Linux:**
+   - Visit [KOReader Releases](https://github.com/koreader/koreader/releases/)
+   - Download the `koreader-linux-*.tar.gz` for your architecture (`x86_64` or `arm`)
+
+2. **Extract:**
+   ```bash
+   tar -xzf koreader-linux-*.tar.gz
+   cd koreader
+   ```
+
+3. **Install the plugin:**
+   ```bash
+   KOREADER_CONFIG="$HOME/.config/koreader"
+   mkdir -p "$KOREADER_CONFIG/plugins"
+   cp -r /path/to/royalroad.koplugin "$KOREADER_CONFIG/plugins/"
+   ```
+
+4. **Run KOReader:**
+   ```bash
+   ./koreader
+   ```
+
 ## Option 2: Build from Source
 
-### Prerequisites
+### macOS Prerequisites
 
 Install dependencies via Homebrew:
 ```bash
@@ -43,6 +69,22 @@ brew install autoconf automake bash binutils cmake coreutils findutils \
 Add Homebrew's GNU tools to PATH:
 ```bash
 export PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/gnu-getopt/bin:$(brew --prefix)/opt/make/libexec/gnubin:$(brew --prefix)/opt/util-linux/bin:${PATH}"
+```
+
+### Linux Prerequisites
+
+Install dependencies via your package manager:
+
+**Debian/Ubuntu:**
+```bash
+sudo apt-get install autoconf automake bash cmake gettext libtool \
+                     make meson nasm ninja-build pkg-config libsdl2-dev
+```
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install autoconf automake cmake gettext libtool make meson \
+                 nasm ninja-build pkg-config SDL2-devel
 ```
 
 ### Build Steps
@@ -84,7 +126,7 @@ export PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/
 3. **Access the menu:**
    - Tap the top of the screen or press Esc
 
-4. **Navigate to:** Tools → Royal Road
+4. **Navigate to:** Tools → Royal Road Downloader
 
 5. **Test with short works first:**
 
@@ -99,8 +141,11 @@ export PATH="$(brew --prefix)/opt/findutils/libexec/gnubin:$(brew --prefix)/opt/
 
 KOReader logs are typically at:
 ```bash
-# Pre-built app
+# macOS (pre-built)
 ~/Library/Application Support/koreader/crash.log
+
+# Linux
+~/.config/koreader/crash.log
 
 # Built from source
 ./koreader/crash.log
@@ -108,10 +153,11 @@ KOReader logs are typically at:
 
 View plugin logs in real-time:
 ```bash
-./view-logs.sh
-
-# Or manually
+# macOS
 tail -f ~/Library/Application\ Support/koreader/crash.log | grep "Royal Road"
+
+# Linux
+tail -f ~/.config/koreader/crash.log | grep "Royal Road"
 ```
 
 ### Common Issues
@@ -133,8 +179,16 @@ tail -f ~/Library/Application\ Support/koreader/crash.log | grep "Royal Road"
 ### Quick Syntax Check
 
 Before testing, you can check for basic Lua syntax errors:
+
+**macOS:**
 ```bash
 brew install lua
+luac -p royalroad.koplugin/main.lua
+```
+
+**Linux:**
+```bash
+sudo apt-get install lua5.4   # Debian/Ubuntu
 luac -p royalroad.koplugin/main.lua
 ```
 
