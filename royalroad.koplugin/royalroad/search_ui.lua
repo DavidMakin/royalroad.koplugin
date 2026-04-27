@@ -134,7 +134,7 @@ function M:showSearchResults(query, results)
         title              = T(_("Results: %1 (%2)"), query, #results),
         item_table         = item_table,
         title_bar_fm_style = true,
-        onMenuSelect       = function(_, item)
+        onMenuSelect       = function(_menu, item)
             UIManager:close(results_menu)
             if downloader.downloaded_stories[item.fiction_id] then
                 UIManager:show(InfoMessage:new{
