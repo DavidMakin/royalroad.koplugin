@@ -202,6 +202,30 @@ function M:manageDownloads()
             downloader:showStoryOptions(story.fiction_id)
         end
 
+        function StoryMosaicMenu:onStoryHold(story)
+            local ButtonDialog = require("ui/widget/buttondialog")
+            local quick_dialog
+            quick_dialog = ButtonDialog:new{
+                title = story.title,
+                buttons = {
+                    {{ text = _("Open"), callback = function()
+                        UIManager:close(quick_dialog)
+                        downloader:showStoryOptions(story.fiction_id)
+                    end }},
+                    {{ text = _("Check for updates"), callback = function()
+                        UIManager:close(quick_dialog)
+                        downloader:checkSingleStoryForUpdates(story.fiction_id)
+                    end }},
+                    {{ text = _("Delete"), callback = function()
+                        UIManager:close(quick_dialog)
+                        downloader:deleteStoryCompletely(story.fiction_id)
+                    end }},
+                    {{ text = _("Cancel"), callback = function() UIManager:close(quick_dialog) end }},
+                },
+            }
+            UIManager:show(quick_dialog)
+        end
+
         function StoryMosaicMenu:onCloseWidget()
             for _, entry in ipairs(self.item_table) do
                 if entry.cover_bb then
@@ -366,6 +390,30 @@ function M:manageDownloads()
 
     function StoryListMenu:onStorySelect(story)
         downloader:showStoryOptions(story.fiction_id)
+    end
+
+    function StoryListMenu:onStoryHold(story)
+        local ButtonDialog = require("ui/widget/buttondialog")
+        local quick_dialog
+        quick_dialog = ButtonDialog:new{
+            title = story.title,
+            buttons = {
+                {{ text = _("Open"), callback = function()
+                    UIManager:close(quick_dialog)
+                    downloader:showStoryOptions(story.fiction_id)
+                end }},
+                {{ text = _("Check for updates"), callback = function()
+                    UIManager:close(quick_dialog)
+                    downloader:checkSingleStoryForUpdates(story.fiction_id)
+                end }},
+                {{ text = _("Delete"), callback = function()
+                    UIManager:close(quick_dialog)
+                    downloader:deleteStoryCompletely(story.fiction_id)
+                end }},
+                {{ text = _("Cancel"), callback = function() UIManager:close(quick_dialog) end }},
+            },
+        }
+        UIManager:show(quick_dialog)
     end
 
     function StoryListMenu:onCloseWidget()

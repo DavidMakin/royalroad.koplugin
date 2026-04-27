@@ -20,6 +20,7 @@ local ltn12           = require("ltn12")
 local socketutil      = require("socketutil")
 local T               = require("ffi/util").template
 local _               = require("gettext")
+local NetworkMgr      = require("ui/network/manager")
 
 local widgets        = require("royalroad/widgets")
 local extractEpubCover = widgets.extractEpubCover
@@ -80,83 +81,99 @@ function M:downloadStory()
 end
 
 function M:processFiction(fiction_id)
-    logger.info("Royal Road: Processing fiction ID:", fiction_id)
+    NetworkMgr:runWhenOnline(function()
+        logger.info("Royal Road: Processing fiction ID:", fiction_id)
 
-    if self.downloaded_stories[fiction_id] then
+        if self.downloaded_stories[fiction_id] then
+            UIManager:show(InfoMessage:new{
+                text = _("Already downloaded — checking for new chapters..."),
+                timeout = 2,
+            })
+            UIManager:scheduleIn(0.1, function()
+                self:checkSingleStoryForUpdates(fiction_id)
+            end)
+            return
+        end
+
         UIManager:show(InfoMessage:new{
-            text = _("Already downloaded — checking for new chapters..."),
+            text = T(_("Fetching story %1..."), fiction_id),
             timeout = 2,
         })
-        UIManager:scheduleIn(0.1, function()
-            self:checkSingleStoryForUpdates(fiction_id)
-        end)
-        return
-    end
 
-    UIManager:show(InfoMessage:new{
-        text = T(_("Fetching story %1..."), fiction_id),
-        timeout = 2,
-    })
+        local fiction_url = "https://www.royalroad.com/fiction/" .. fiction_id
+        local story_html = self:fetchPageCached(fiction_url)
 
-    local fiction_url = "https://www.royalroad.com/fiction/" .. fiction_id
-    local story_html = self:fetchPageCached(fiction_url)
+        if not story_html then
+            UIManager:show(InfoMessage:new{
+                text = _("Failed to fetch story page."),
+                timeout = 5,
+            })
+            return
+        end
 
-    if not story_html then
-        UIManager:show(InfoMessage:new{
-            text = _("Failed to fetch story page."),
-            timeout = 5,
-        })
-        return
-    end
+        local story_title = self:extractTitle(story_html)
+        local author = self:extractAuthor(story_html)
+        local chapter_urls = self:extractChapterURLs(story_html, fiction_id)
+        local cover_url = self:extractCoverURL(story_html)
+        local description = self:extractDescription(story_html)
+        if description and description ~= "" then
+            if not self._pending_descriptions then self._pending_descriptions = {} end
+            self._pending_descriptions[fiction_id] = description
+        end
 
-    local story_title = self:extractTitle(story_html)
-    local author = self:extractAuthor(story_html)
-    local chapter_urls = self:extractChapterURLs(story_html, fiction_id)
-    local cover_url = self:extractCoverURL(story_html)
-    local description = self:extractDescription(story_html)
-    if description and description ~= "" then
-        if not self._pending_descriptions then self._pending_descriptions = {} end
-        self._pending_descriptions[fiction_id] = description
-    end
-
-    if not story_title or #chapter_urls == 0 then
-        UIManager:show(InfoMessage:new{
-            text = T(_("Failed to parse story.\nTitle: %1\nChapters: %2"),
-                story_title or "NONE", #chapter_urls),
-            timeout = 10,
-        })
-        return
-    end
-
-    logger.info("Royal Road: Cover URL:", cover_url or "none found")
-
-    local cover_image = nil
-    if cover_url then
-        UIManager:show(InfoMessage:new{
-            text = _("Downloading cover image..."),
-            timeout = 1,
-        })
-        local image_data, mime_type, extension = self:fetchImage(cover_url)
-        if image_data then
-            cover_image = {
-                data = image_data,
-                mime_type = mime_type,
-                extension = extension,
+        local rating = self:extractRating(story_html)
+        local status = self:extractStatus(story_html)
+        local word_count = self:extractWordCount(story_html)
+        local last_chapter_date = self:extractLastChapterDate(story_html)
+        if rating or status or word_count or last_chapter_date then
+            if not self._pending_metadata then self._pending_metadata = {} end
+            self._pending_metadata[fiction_id] = {
+                rating = rating,
+                status = status,
+                word_count = word_count,
+                last_chapter_date = last_chapter_date,
             }
         end
-    end
 
-    local total_available = #chapter_urls
-    if self.debug_chapter_limit and #chapter_urls > self.debug_chapter_limit then
-        local limited_urls = {}
-        for i = 1, self.debug_chapter_limit do
-            table.insert(limited_urls, chapter_urls[i])
+        if not story_title or #chapter_urls == 0 then
+            UIManager:show(InfoMessage:new{
+                text = T(_("Failed to parse story.\nTitle: %1\nChapters: %2"),
+                    story_title or "NONE", #chapter_urls),
+                timeout = 10,
+            })
+            return
         end
-        chapter_urls = limited_urls
-        logger.info("Royal Road: DEBUG - Limited from", total_available, "to", #chapter_urls, "chapters")
-    end
 
-    self:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, total_available)
+        logger.info("Royal Road: Cover URL:", cover_url or "none found")
+
+        local cover_image = nil
+        if cover_url then
+            UIManager:show(InfoMessage:new{
+                text = _("Downloading cover image..."),
+                timeout = 1,
+            })
+            local image_data, mime_type, extension = self:fetchImage(cover_url)
+            if image_data then
+                cover_image = {
+                    data = image_data,
+                    mime_type = mime_type,
+                    extension = extension,
+                }
+            end
+        end
+
+        local total_available = #chapter_urls
+        if self.debug_chapter_limit and #chapter_urls > self.debug_chapter_limit then
+            local limited_urls = {}
+            for i = 1, self.debug_chapter_limit do
+                table.insert(limited_urls, chapter_urls[i])
+            end
+            chapter_urls = limited_urls
+            logger.info("Royal Road: DEBUG - Limited from", total_available, "to", #chapter_urls, "chapters")
+        end
+
+        self:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, total_available)
+    end)
 end
 
 function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, total_available)
@@ -455,6 +472,36 @@ function M:extractDescription(html)
     return desc
 end
 
+function M:extractRating(html)
+    return html:match('"ratingValue"%s*:%s*"([%d%.]+)"')
+        or html:match('property="v:rating"[^>]+content="([^"]+)"')
+        or html:match('<span[^>]*class="[^"]*number[^"]*"[^>]*>([%d%.]+)</span>')
+end
+
+function M:extractStatus(html)
+    return html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Ongoing)%s*</span>')
+        or html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Completed)%s*</span>')
+        or html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Hiatus)%s*</span>')
+        or html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Stub)%s*</span>')
+end
+
+function M:extractWordCount(html)
+    local wc = html:match('"wordCount"%s*:%s*(%d+)')
+        or html:match('<span[^>]*title="Words"[^>]*>%s*([%d,]+)%s*</span>')
+    if wc then
+        wc = wc:gsub(",", "")
+    end
+    return wc
+end
+
+function M:extractLastChapterDate(html)
+    local last_date = nil
+    for date in html:gmatch('<time[^>]+datetime="([^"]+)"') do
+        last_date = date
+    end
+    return last_date
+end
+
 function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, partial_of)
     local total_chapters = #chapter_urls
     local chapters_data = {}
@@ -603,6 +650,14 @@ function M:downloadNextChapter(state, i)
                 if self._pending_descriptions and self._pending_descriptions[state.fiction_id] then
                     entry.description = self._pending_descriptions[state.fiction_id]
                     self._pending_descriptions[state.fiction_id] = nil
+                end
+                if self._pending_metadata and self._pending_metadata[state.fiction_id] then
+                    local meta = self._pending_metadata[state.fiction_id]
+                    if meta.rating then entry.rating = meta.rating end
+                    if meta.status then entry.status = meta.status end
+                    if meta.word_count then entry.word_count = meta.word_count end
+                    if meta.last_chapter_date then entry.last_chapter_date = meta.last_chapter_date end
+                    self._pending_metadata[state.fiction_id] = nil
                 end
                 self:saveSettings()
             end
@@ -776,6 +831,148 @@ function M:_doRetryFailedChapters(state, i)
             self:_doRetryFailedChapters(state, i + 1)
         end)
     end)
+end
+
+function M:bulkImport()
+    local dialog
+    dialog = InputDialog:new{
+        title = _("Bulk import fiction IDs or URLs"),
+        input_hint = _("One URL or ID per line..."),
+        input_type = "string",
+        text_height = Font:getFace("x_smallinfofont").size * 8,
+        buttons = {{
+            {
+                text = _("Cancel"),
+                callback = function()
+                    UIManager:close(dialog)
+                end,
+            },
+            {
+                text = _("Import"),
+                is_enter_default = true,
+                callback = function()
+                    local text = dialog:getInputText()
+                    UIManager:close(dialog)
+                    if not text or text == "" then return end
+                    local ids = {}
+                    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+                        local id = line:match("/fiction/(%d+)") or line:match("^%s*(%d+)%s*$")
+                        if id then
+                            table.insert(ids, id)
+                        end
+                    end
+                    if #ids == 0 then return end
+                    UIManager:show(InfoMessage:new{
+                        text = T(_("Queuing %1 stories..."), #ids),
+                        timeout = 2,
+                    })
+                    for i, id in ipairs(ids) do
+                        UIManager:scheduleIn(0.2 * i, function()
+                            self:processFiction(id)
+                        end)
+                    end
+                end,
+            },
+        }},
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
+end
+
+function M:exportReadingList()
+    local export_dialog
+    export_dialog = ButtonDialog:new{
+        title = _("Export reading list"),
+        buttons = {
+            {{
+                text = _("Export as JSON"),
+                callback = function()
+                    UIManager:close(export_dialog)
+                    local DocSettings = require("docsettings")
+                    local entries = {}
+                    for fiction_id, story in pairs(self.downloaded_stories) do
+                        local progress = 0
+                        if story.epub_path then
+                            local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                            if ok and ds and ds.data then
+                                progress = ds.data.percent_finished or 0
+                            end
+                        end
+                        local entry = string.format(
+                            '{"fiction_id":"%s","title":"%s","author":"%s","chapters":%d,"progress":%s,"epub_path":"%s"}',
+                            fiction_id,
+                            (story.title or ""):gsub('"', '\\"'),
+                            (story.author or ""):gsub('"', '\\"'),
+                            #(story.chapter_urls or {}),
+                            tostring(progress),
+                            (story.epub_path or ""):gsub('"', '\\"')
+                        )
+                        table.insert(entries, entry)
+                    end
+                    local json = "[" .. table.concat(entries, ",") .. "]"
+                    local path = self.download_dir .. "/royalroad_export.json"
+                    local f = io.open(path, "w")
+                    if f then
+                        f:write(json)
+                        f:close()
+                        UIManager:show(InfoMessage:new{
+                            text = T(_("Exported to:\n%1"), path),
+                        })
+                    else
+                        UIManager:show(InfoMessage:new{
+                            text = _("Failed to write export file."),
+                            timeout = 3,
+                        })
+                    end
+                end,
+            }},
+            {{
+                text = _("Export as CSV"),
+                callback = function()
+                    UIManager:close(export_dialog)
+                    local DocSettings = require("docsettings")
+                    local rows = { '"fiction_id","title","author","chapters","progress","epub_path"' }
+                    for fiction_id, story in pairs(self.downloaded_stories) do
+                        local progress = 0
+                        if story.epub_path then
+                            local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                            if ok and ds and ds.data then
+                                progress = ds.data.percent_finished or 0
+                            end
+                        end
+                        local row = string.format('"%s","%s","%s",%d,%s,"%s"',
+                            fiction_id,
+                            (story.title or ""):gsub('"', '""'),
+                            (story.author or ""):gsub('"', '""'),
+                            #(story.chapter_urls or {}),
+                            tostring(progress),
+                            (story.epub_path or ""):gsub('"', '""')
+                        )
+                        table.insert(rows, row)
+                    end
+                    local path = self.download_dir .. "/royalroad_export.csv"
+                    local f = io.open(path, "w")
+                    if f then
+                        f:write(table.concat(rows, "\n"))
+                        f:close()
+                        UIManager:show(InfoMessage:new{
+                            text = T(_("Exported to:\n%1"), path),
+                        })
+                    else
+                        UIManager:show(InfoMessage:new{
+                            text = _("Failed to write export file."),
+                            timeout = 3,
+                        })
+                    end
+                end,
+            }},
+            {{
+                text = _("Cancel"),
+                callback = function() UIManager:close(export_dialog) end,
+            }},
+        },
+    }
+    UIManager:show(export_dialog)
 end
 
 return M

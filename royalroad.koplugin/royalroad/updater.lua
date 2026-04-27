@@ -13,6 +13,7 @@ local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
 local logger          = require("logger")
 local socket          = require("socket")
+local NetworkMgr      = require("ui/network/manager")
 local T               = require("ffi/util").template
 local _               = require("gettext")
 
@@ -45,51 +46,53 @@ function M:checkForUpdates()
 end
 
 function M:performUpdateCheck()
-    local stories_with_updates = {}
-    local errors = {}
+    NetworkMgr:runWhenOnline(function()
+        local stories_with_updates = {}
+        local errors = {}
 
-    for fiction_id, story in pairs(self.downloaded_stories) do
-        logger.info("Royal Road: Checking updates for", story.title, "(", fiction_id, ")")
+        for fiction_id, story in pairs(self.downloaded_stories) do
+            logger.info("Royal Road: Checking updates for", story.title, "(", fiction_id, ")")
 
-        local story_url = "https://www.royalroad.com/fiction/" .. fiction_id
-        local story_html = self:fetchPage(story_url)
+            local story_url = "https://www.royalroad.com/fiction/" .. fiction_id
+            local story_html = self:fetchPage(story_url)
 
-        if story_html then
-            local current_urls = self:extractChapterURLs(story_html, fiction_id)
-            local stored_count = #(story.chapter_urls or {})
-            local current_count = #current_urls
+            if story_html then
+                local current_urls = self:extractChapterURLs(story_html, fiction_id)
+                local stored_count = #(story.chapter_urls or {})
+                local current_count = #current_urls
 
-            logger.info("Royal Road: Story", fiction_id, "has", stored_count, "stored,", current_count, "current chapters")
+                logger.info("Royal Road: Story", fiction_id, "has", stored_count, "stored,", current_count, "current chapters")
 
-            if current_count > stored_count then
-                local new_chapters = current_count - stored_count
-                table.insert(stories_with_updates, {
-                    fiction_id = fiction_id,
-                    title = story.title,
-                    stored_count = stored_count,
-                    current_count = current_count,
-                    new_chapters = new_chapters,
-                    current_urls = current_urls,
-                })
+                if current_count > stored_count then
+                    local new_chapters = current_count - stored_count
+                    table.insert(stories_with_updates, {
+                        fiction_id = fiction_id,
+                        title = story.title,
+                        stored_count = stored_count,
+                        current_count = current_count,
+                        new_chapters = new_chapters,
+                        current_urls = current_urls,
+                    })
+                end
+            else
+                table.insert(errors, story.title)
+                logger.warn("Royal Road: Failed to fetch story page for", fiction_id)
             end
-        else
-            table.insert(errors, story.title)
-            logger.warn("Royal Road: Failed to fetch story page for", fiction_id)
         end
-    end
 
-    if #stories_with_updates == 0 then
-        local msg = _("All stories are up to date!")
-        if #errors > 0 then
-            msg = msg .. "\n\n" .. T(_("Failed to check: %1"), table.concat(errors, ", "))
+        if #stories_with_updates == 0 then
+            local msg = _("All stories are up to date!")
+            if #errors > 0 then
+                msg = msg .. "\n\n" .. T(_("Failed to check: %1"), table.concat(errors, ", "))
+            end
+            UIManager:show(InfoMessage:new{
+                text = msg,
+            })
+            return
         end
-        UIManager:show(InfoMessage:new{
-            text = msg,
-        })
-        return
-    end
 
-    self:showUpdateMenu(stories_with_updates)
+        self:showUpdateMenu(stories_with_updates)
+    end)
 end
 
 function M:showUpdateMenu(stories_with_updates)
@@ -383,14 +386,25 @@ function M:rebuildEPUBWithNewChapters(state)
         end
     end
     if cover_url then
-        local image_data, mime_type, extension = self:fetchImage(cover_url)
-        if image_data then
+        if not self._cover_cache then self._cover_cache = {} end
+        if self._cover_cache[cover_url] then
             cover_image = {
-                data = image_data,
-                mime_type = mime_type,
-                extension = extension,
+                data      = self._cover_cache[cover_url].data,
+                mime_type = self._cover_cache[cover_url].mime_type,
+                extension = self._cover_cache[cover_url].extension,
             }
-            logger.info("Royal Road: Fetched cover image for update")
+            logger.info("Royal Road: Using cached cover image for update")
+        else
+            local image_data, mime_type, extension = self:fetchImage(cover_url)
+            if image_data then
+                cover_image = {
+                    data = image_data,
+                    mime_type = mime_type,
+                    extension = extension,
+                }
+                self._cover_cache[cover_url] = { data = image_data, mime_type = mime_type, extension = extension }
+                logger.info("Royal Road: Fetched cover image for update")
+            end
         end
     end
 

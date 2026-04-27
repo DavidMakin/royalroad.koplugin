@@ -44,6 +44,9 @@ function StoryListItem:init()
         TapSelect = {
             GestureRange:new{ ges = "tap", range = self.dimen },
         },
+        HoldSelect = {
+            GestureRange:new{ ges = "hold", range = self.dimen },
+        },
     }
 
     local inner_cover
@@ -147,6 +150,13 @@ function StoryListItem:onTapSelect()
     return true
 end
 
+function StoryListItem:onHoldSelect()
+    if self.menu and self.menu.onStoryHold then
+        self.menu:onStoryHold(self.story)
+    end
+    return true
+end
+
 local StoryCoverCell = InputContainer:extend{
     story       = nil,
     cell_width  = nil,
@@ -162,6 +172,9 @@ function StoryCoverCell:init()
     self.ges_events = {
         TapSelect = {
             GestureRange:new{ ges = "tap", range = self.dimen },
+        },
+        HoldSelect = {
+            GestureRange:new{ ges = "hold", range = self.dimen },
         },
     }
 
@@ -233,6 +246,13 @@ end
 function StoryCoverCell:onTapSelect()
     if self.menu then
         self.menu:onStorySelect(self.story)
+    end
+    return true
+end
+
+function StoryCoverCell:onHoldSelect()
+    if self.menu and self.menu.onStoryHold then
+        self.menu:onStoryHold(self.story)
     end
     return true
 end

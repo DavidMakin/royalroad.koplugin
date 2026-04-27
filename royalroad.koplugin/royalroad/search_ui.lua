@@ -1,6 +1,7 @@
 local InfoMessage = require("ui/widget/infomessage")
 local InputDialog = require("ui/widget/inputdialog")
 local Menu        = require("ui/widget/menu")
+local NetworkMgr  = require("ui/network/manager")
 local UIManager   = require("ui/uimanager")
 local logger      = require("logger")
 local T           = require("ffi/util").template
@@ -41,34 +42,36 @@ function M:searchStories()
 end
 
 function M:performSearch(query)
-    UIManager:show(InfoMessage:new{
-        text    = T(_("Searching for \"%1\"..."), query),
-        timeout = 2,
-    })
+    NetworkMgr:runWhenOnline(function()
+        UIManager:show(InfoMessage:new{
+            text    = T(_("Searching for \"%1\"..."), query),
+            timeout = 2,
+        })
 
-    UIManager:scheduleIn(0.1, function()
-        local encoded = query:gsub(" ", "+"):gsub("[^%w%+%-_%.~]", function(c)
-            return string.format("%%%02X", c:byte())
+        UIManager:scheduleIn(0.1, function()
+            local encoded = query:gsub(" ", "+"):gsub("[^%w%+%-_%.~]", function(c)
+                return string.format("%%%02X", c:byte())
+            end)
+            local url = "https://www.royalroad.com/fictions/search?title=" .. encoded
+
+            local html = self:fetchPage(url)
+            if not html then
+                UIManager:show(InfoMessage:new{
+                    text = _("Search failed. Check your connection."),
+                })
+                return
+            end
+
+            local results = self:parseSearchResults(html)
+            if #results == 0 then
+                UIManager:show(InfoMessage:new{
+                    text = T(_("No results found for \"%1\"."), query),
+                })
+                return
+            end
+
+            self:showSearchResults(query, results)
         end)
-        local url = "https://www.royalroad.com/fictions/search?title=" .. encoded
-
-        local html = self:fetchPage(url)
-        if not html then
-            UIManager:show(InfoMessage:new{
-                text = _("Search failed. Check your connection."),
-            })
-            return
-        end
-
-        local results = self:parseSearchResults(html)
-        if #results == 0 then
-            UIManager:show(InfoMessage:new{
-                text = T(_("No results found for \"%1\"."), query),
-            })
-            return
-        end
-
-        self:showSearchResults(query, results)
     end)
 end
 
@@ -97,6 +100,18 @@ function M:parseSearchResults(html)
             local chapters = block:match('<span[^>]*title="Chapters"[^>]*>%s*(%d+[^<]*)</span>')
                 or block:match('(%d+)%s*[Cc]hapters?')
 
+            local rating = block:match('"ratingValue"%s*:%s*"([%d%.]+)"')
+                or block:match('<span[^>]*class="[^"]*number[^"]*"[^>]*>([%d%.]+)</span>')
+
+            local status = block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Ongoing)%s*</span>')
+                or block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Completed)%s*</span>')
+                or block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Hiatus)%s*</span>')
+                or block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Stub)%s*</span>')
+
+            local wc_raw = block:match('"wordCount"%s*:%s*(%d+)')
+                or block:match('<span[^>]*title="Words"[^>]*>%s*([%d,]+)%s*</span>')
+            local word_count = wc_raw and wc_raw:gsub(",", "") or nil
+
             local tags = {}
             for tag_text in block:gmatch('<a[^>]+class="[^"]*tag[^"]*"[^>]*>(.-)</a>') do
                 local t = tag_text:gsub("<[^>]+>", ""):gsub("^%s+", ""):gsub("%s+$", "")
@@ -113,6 +128,9 @@ function M:parseSearchResults(html)
                     author     = author or "",
                     chapters   = chapters or "?",
                     tags       = tags,
+                    rating     = rating,
+                    status     = status,
+                    word_count = word_count,
                 })
             end
         end
@@ -126,9 +144,17 @@ function M:showSearchResults(query, results)
     local downloader = self
     local item_table = {}
     for _, r in ipairs(results) do
-        local sub = r.author ~= "" and (r.author .. " - " .. r.chapters .. " ch") or (r.chapters .. " ch")
+        local sub = r.status and ("[" .. r.status .. "] ") or ""
+        sub = sub .. (r.author ~= "" and (r.author .. " - " .. r.chapters .. " ch") or (r.chapters .. " ch"))
         if r.tags and #r.tags > 0 then
             sub = sub .. " · " .. table.concat(r.tags, ", ")
+        end
+        if r.word_count then
+            local wk = math.floor(tonumber(r.word_count) / 100 + 0.5) / 10
+            sub = sub .. " · " .. tostring(wk) .. "k words"
+        end
+        if r.rating then
+            sub = sub .. " ★" .. r.rating
         end
         if #sub > 40 then sub = sub:sub(1, 38) .. "…" end
         table.insert(item_table, {

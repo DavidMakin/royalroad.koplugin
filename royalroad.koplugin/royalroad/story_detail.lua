@@ -8,6 +8,7 @@ local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan  = require("ui/widget/horizontalspan")
 local ImageWidget     = require("ui/widget/imagewidget")
 local InfoMessage     = require("ui/widget/infomessage")
+local InputDialog     = require("ui/widget/inputdialog")
 local Size            = require("ui/size")
 local TextBoxWidget   = require("ui/widget/textboxwidget")
 local TextWidget      = require("ui/widget/textwidget")
@@ -102,12 +103,36 @@ function M:showStoryOptions(fiction_id)
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })
     end
+    if story.status and story.status ~= "" then
+        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
+        table.insert(meta_group, TextWidget:new{
+            text    = story.status,
+            face    = Font:getFace("smallffont"),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        })
+    end
     table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
     table.insert(meta_group, TextWidget:new{
         text    = T(_("%1 chapters"), chapter_count),
         face    = Font:getFace("smallffont"),
         fgcolor = Blitbuffer.COLOR_DARK_GRAY,
     })
+    if story.word_count and story.word_count ~= "" then
+        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
+        table.insert(meta_group, TextWidget:new{
+            text    = T(_("%1 words"), story.word_count),
+            face    = Font:getFace("smallffont"),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        })
+    end
+    if story.rating and story.rating ~= "" then
+        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
+        table.insert(meta_group, TextWidget:new{
+            text    = T(_("Rating: %1★"), story.rating),
+            face    = Font:getFace("smallffont"),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        })
+    end
     table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
     table.insert(meta_group, TextWidget:new{
         text    = T(_("Downloaded: %1"), download_date),
@@ -120,6 +145,14 @@ function M:showStoryOptions(fiction_id)
         face    = Font:getFace("smallffont"),
         fgcolor = Blitbuffer.COLOR_DARK_GRAY,
     })
+    if story.last_chapter_date and story.last_chapter_date ~= "" then
+        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
+        table.insert(meta_group, TextWidget:new{
+            text    = T(_("Last chapter: %1"), story.last_chapter_date),
+            face    = Font:getFace("smallffont"),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        })
+    end
     if read_percent and read_percent > 0 then
         table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
         table.insert(meta_group, TextWidget:new{
@@ -159,6 +192,36 @@ function M:showStoryOptions(fiction_id)
                 self:checkSingleStoryForUpdates(fiction_id)
             end,
         }})
+        table.insert(buttons, {{
+            text = _("Mark as fully read"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                local DocSettings = require("docsettings")
+                local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                if ok and ds then
+                    ds.data.percent_finished = 1.0
+                    ds.data.last_xpointer = nil
+                    ds:flush()
+                end
+                story.unread_new_count = nil
+                self:saveSettings()
+                UIManager:show(InfoMessage:new{ text = _("Marked as fully read."), timeout = 2 })
+            end,
+        }})
+        table.insert(buttons, {{
+            text = _("Reset progress"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                local DocSettings = require("docsettings")
+                local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                if ok and ds then
+                    ds.data.percent_finished = 0
+                    ds.data.last_xpointer = nil
+                    ds:flush()
+                end
+                UIManager:show(InfoMessage:new{ text = _("Progress reset."), timeout = 2 })
+            end,
+        }})
     else
         table.insert(buttons, {{
             text = _("EPUB missing - Redownload"),
@@ -181,6 +244,65 @@ function M:showStoryOptions(fiction_id)
         }})
     end
 
+    table.insert(buttons, {{
+        text = _("Edit note"),
+        callback = function()
+            UIManager:close(self.story_detail_dialog)
+            local note_dialog
+            note_dialog = InputDialog:new{
+                title = _("Story note"),
+                input = story.note or "",
+                input_type = "string",
+                text_height = Font:getFace("x_smallinfofont").size * 6,
+                buttons = {{
+                    {
+                        text = _("Cancel"),
+                        callback = function()
+                            UIManager:close(note_dialog)
+                        end,
+                    },
+                    {
+                        text = _("Save"),
+                        is_enter_default = true,
+                        callback = function()
+                            story.note = note_dialog:getInputText()
+                            UIManager:close(note_dialog)
+                            self:saveSettings()
+                        end,
+                    },
+                }},
+            }
+            UIManager:show(note_dialog)
+            note_dialog:onShowKeyboard()
+        end,
+    }})
+    if story.cover_url and story.cover_url ~= "" then
+        table.insert(buttons, {{
+            text = _("Refresh cover"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:show(InfoMessage:new{ text = _("Fetching cover..."), timeout = 2 })
+                UIManager:scheduleIn(0.1, function()
+                    local image_data, mime_type, extension = self:fetchImage(story.cover_url)
+                    if image_data then
+                        story.cover_image_data = image_data
+                        story.cover_mime = mime_type
+                        story.cover_ext = extension
+                        story.cover_bb = nil
+                        self:saveSettings()
+                        local existing_chapters, ch_err = self:extractChaptersFromEPUB(story.epub_path)
+                        if existing_chapters then
+                            local cover_image = { data = image_data, mime_type = mime_type, extension = extension }
+                            self:saveAsEPUB(story.fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url)
+                        end
+                        UIManager:show(InfoMessage:new{ text = _("Cover updated!"), timeout = 2 })
+                    else
+                        UIManager:show(InfoMessage:new{ text = _("Failed to fetch cover."), timeout = 3 })
+                    end
+                end)
+            end,
+        }})
+    end
     table.insert(buttons, {{
         text = _("Remove from tracking"),
         callback = function()
@@ -231,6 +353,18 @@ function M:showStoryOptions(fiction_id)
         end
         table.insert(main_vgroup, TextBoxWidget:new{
             text  = desc_text,
+            face  = Font:getFace("x_smallinfofont"),
+            width = dialog_w - Size.padding.large * 2,
+        })
+        table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
+    end
+    if story.note and story.note ~= "" then
+        local note_text = story.note
+        if #note_text > 200 then
+            note_text = note_text:sub(1, 197) .. "..."
+        end
+        table.insert(main_vgroup, TextBoxWidget:new{
+            text  = note_text,
             face  = Font:getFace("x_smallinfofont"),
             width = dialog_w - Size.padding.large * 2,
         })

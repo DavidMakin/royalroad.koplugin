@@ -69,6 +69,20 @@ function M:addToMainMenu(menu_items)
                 end,
             },
             {
+                text = _("Bulk import"),
+                keep_menu_open = true,
+                callback = function()
+                    self:bulkImport()
+                end,
+            },
+            {
+                text = _("Export reading list"),
+                keep_menu_open = true,
+                callback = function()
+                    self:exportReadingList()
+                end,
+            },
+            {
                 text = _("Open downloads folder"),
                 callback = function()
                     self:openDownloadsFolder()
