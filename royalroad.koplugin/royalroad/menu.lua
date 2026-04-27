@@ -19,6 +19,13 @@ function M:addToMainMenu(menu_items)
                 end,
             },
             {
+                text = _("Search Royal Road"),
+                keep_menu_open = true,
+                callback = function()
+                    self:searchStories()
+                end,
+            },
+            {
                 text_func = function()
                     local count = self:countDownloadedStories()
                     if count > 0 then
@@ -47,6 +54,13 @@ function M:addToMainMenu(menu_items)
                 end,
             },
             {
+                text = _("Batch actions"),
+                keep_menu_open = true,
+                callback = function()
+                    self:showBatchActions()
+                end,
+            },
+            {
                 text = _("Open downloads folder"),
                 callback = function()
                     self:openDownloadsFolder()
@@ -59,7 +73,7 @@ function M:addToMainMenu(menu_items)
                         text_func = function()
                             local dir = self.download_dir
                             local short = dir:match("([^/]+/[^/]+)$") or dir
-                            return T(_("Download folder: …/%1"), short)
+                            return T(_("Download folder: .../%1"), short)
                         end,
                         keep_menu_open = true,
                         callback = function()
@@ -146,7 +160,7 @@ function M:addToMainMenu(menu_items)
                     },
                     {
                         text_func = function()
-                            local labels = { title = _("Title"), date = _("Date"), chapters = _("Chapters") }
+                            local labels = { title = _("Title"), date = _("Date"), chapters = _("Chapters"), lastread = _("Last read") }
                             return T(_("Sort by: %1"), labels[self.manage_sort_mode] or _("Title"))
                         end,
                         keep_menu_open = true,
@@ -177,6 +191,15 @@ function M:addToMainMenu(menu_items)
                                         text     = (self.manage_sort_mode == "chapters" and "● " or "○ ") .. _("Chapter count"),
                                         callback = function()
                                             self.manage_sort_mode = "chapters"
+                                            self:saveSettings()
+                                            UIManager:close(dialog)
+                                            if self._plugin_menu then self._plugin_menu:updateItems() end
+                                        end,
+                                    }},
+                                    {{
+                                        text     = (self.manage_sort_mode == "lastread" and "● " or "○ ") .. _("Last read"),
+                                        callback = function()
+                                            self.manage_sort_mode = "lastread"
                                             self:saveSettings()
                                             UIManager:close(dialog)
                                             if self._plugin_menu then self._plugin_menu:updateItems() end

@@ -27,9 +27,9 @@ local M = {}
 
 function M:downloadStory()
     self.input_dialog = InputDialog:new{
-        title = _("Enter Royal Road Fiction ID"),
-        input_hint = _("e.g., 73475"),
-        input_type = "number",
+        title      = _("Enter Royal Road Fiction ID or URL"),
+        input_hint = _("e.g., 73475 or royalroad.com/fiction/73475/..."),
+        input_type = "string",
         buttons = {
             {
                 {
@@ -42,10 +42,18 @@ function M:downloadStory()
                     text = _("Download"),
                     is_enter_default = true,
                     callback = function()
-                        local fiction_id = self.input_dialog:getInputText()
+                        local input = self.input_dialog:getInputText()
                         UIManager:close(self.input_dialog)
-                        if fiction_id and fiction_id ~= "" then
-                            self:processFiction(fiction_id)
+                        if input and input ~= "" then
+                            local fiction_id = input:match("/fiction/(%d+)") or input:match("^%s*(%d+)%s*$")
+                            if fiction_id then
+                                self:processFiction(fiction_id)
+                            else
+                                UIManager:show(InfoMessage:new{
+                                    text    = _("Invalid input. Enter a fiction ID or a Royal Road URL."),
+                                    timeout = 4,
+                                })
+                            end
                         end
                     end,
                 },
@@ -128,22 +136,84 @@ function M:processFiction(fiction_id)
         logger.info("Royal Road: DEBUG - Limited from", total_available, "to", #chapter_urls, "chapters")
     end
 
-    local download_msg = T(_("Found: %1\nBy: %2\nChapters: %3\n\nDownloading..."),
-                 story_title, author or "Unknown", #chapter_urls)
-    if self.debug_chapter_limit and total_available > #chapter_urls then
-        download_msg = T(_("Found: %1\nBy: %2\nChapters: %3 (of %4 - DEBUG LIMIT)\n\nDownloading..."),
-                 story_title, author or "Unknown", #chapter_urls, total_available)
-    end
-
-    UIManager:show(InfoMessage:new{
-        text = download_msg,
-        timeout = 3,
-    })
-
-    self:queueDownload(fiction_id, story_title, author, chapter_urls, cover_image, cover_url)
+    self:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, total_available)
 end
 
-function M:queueDownload(fiction_id, story_title, author, chapter_urls, cover_image, cover_url)
+function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, total_available)
+    local function doDownload(from_ch, to_ch)
+        local selected_urls = {}
+        for i = from_ch, to_ch do
+            table.insert(selected_urls, chapter_urls[i])
+        end
+        local partial_of = (to_ch < total_available) and total_available or nil
+
+        UIManager:show(InfoMessage:new{
+            text    = T(_("Found: %1\nBy: %2\nChapters: %3-%4 of %5\n\nDownloading..."),
+                        story_title, author or "Unknown", from_ch, to_ch, total_available),
+            timeout = 3,
+        })
+
+        UIManager:scheduleIn(0.1, function()
+            self:queueDownload(fiction_id, story_title, author, selected_urls, cover_image, cover_url, partial_of)
+        end)
+    end
+
+    local range_dialog
+    range_dialog = InputDialog:new{
+        title      = T(_("%1 - %2 chapters available"), story_title, total_available),
+        input      = tostring(total_available),
+        input_hint = T(_("e.g. 50 or 1-%1"), total_available),
+        input_type = "string",
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    callback = function()
+                        UIManager:close(range_dialog)
+                    end,
+                },
+                {
+                    text = _("Download"),
+                    is_enter_default = true,
+                    callback = function()
+                        local raw = range_dialog:getInputText():gsub("%s", "")
+                        UIManager:close(range_dialog)
+
+                        local from_ch, to_ch
+                        local range_from, range_to = raw:match("^(%d+)-(%d+)$")
+                        if range_from and range_to then
+                            from_ch = math.max(1, tonumber(range_from))
+                            to_ch   = math.min(total_available, tonumber(range_to))
+                        else
+                            local n = tonumber(raw)
+                            if n then
+                                from_ch = math.max(1, total_available - n + 1)
+                                to_ch   = total_available
+                            else
+                                from_ch = 1
+                                to_ch   = total_available
+                            end
+                        end
+
+                        if from_ch > to_ch then
+                            UIManager:show(InfoMessage:new{
+                                text    = _("Invalid range."),
+                                timeout = 3,
+                            })
+                            return
+                        end
+
+                        doDownload(from_ch, to_ch)
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(range_dialog)
+    range_dialog:onShowKeyboard()
+end
+
+function M:queueDownload(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, partial_of)
     if not self._download_queue then self._download_queue = {} end
     table.insert(self._download_queue, {
         fiction_id    = fiction_id,
@@ -152,6 +222,7 @@ function M:queueDownload(fiction_id, story_title, author, chapter_urls, cover_im
         chapter_urls  = chapter_urls,
         cover_image   = cover_image,
         cover_url     = cover_url,
+        partial_of    = partial_of,
     })
     if not self._download_active then
         self:_processDownloadQueue()
@@ -171,7 +242,7 @@ function M:_processDownloadQueue()
     self._download_active = true
     local item = table.remove(self._download_queue, 1)
     self:downloadChapters(item.fiction_id, item.story_title, item.author,
-        item.chapter_urls, item.cover_image, item.cover_url)
+        item.chapter_urls, item.cover_image, item.cover_url, item.partial_of)
 end
 
 function M:_onDownloadComplete()
@@ -244,17 +315,24 @@ function M:fetchImage(image_url)
         return nil, nil
     end
 
-    local mime_type = "image/jpeg"
-    local extension = "jpg"
-    if image_url:match("%.png") then
-        mime_type = "image/png"
-        extension = "png"
+    local content_type = (headers and (headers["content-type"] or headers["Content-Type"])) or ""
+    local mime_type, extension
+    if content_type:find("png") then
+        mime_type, extension = "image/png", "png"
+    elseif content_type:find("gif") then
+        mime_type, extension = "image/gif", "gif"
+    elseif content_type:find("webp") then
+        mime_type, extension = "image/webp", "webp"
+    elseif content_type:find("jpeg") or content_type:find("jpg") then
+        mime_type, extension = "image/jpeg", "jpg"
+    elseif image_url:match("%.png") then
+        mime_type, extension = "image/png", "png"
     elseif image_url:match("%.gif") then
-        mime_type = "image/gif"
-        extension = "gif"
+        mime_type, extension = "image/gif", "gif"
     elseif image_url:match("%.webp") then
-        mime_type = "image/webp"
-        extension = "webp"
+        mime_type, extension = "image/webp", "webp"
+    else
+        mime_type, extension = "image/jpeg", "jpg"
     end
 
     logger.info("Royal Road: Downloaded cover image,", #image_data, "bytes")
@@ -327,7 +405,7 @@ function M:extractCoverURL(html)
     return cover_url
 end
 
-function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover_image, cover_url)
+function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, partial_of)
     local total_chapters = #chapter_urls
     local chapters_data = {}
     local start_time = socket.gettime()
@@ -339,8 +417,8 @@ function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover
 
     local queue_size = self._download_queue and #self._download_queue or 0
     local title_text = queue_size > 0
-        and T(_("Downloading… (%1 more queued)"), queue_size)
-        or _("Downloading…")
+        and T(_("Downloading... (%1 more queued)"), queue_size)
+        or _("Downloading...")
     local title_widget = TextWidget:new{
         text = title_text,
         face = Font:getFace("smalltfont"),
@@ -369,17 +447,18 @@ function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover
     }
 
     local state = {
-        fiction_id = fiction_id,
-        story_title = story_title,
-        author = author,
-        chapter_urls = chapter_urls,
-        cover_image = cover_image,
-        cover_url = cover_url,
+        fiction_id     = fiction_id,
+        story_title    = story_title,
+        author         = author,
+        chapter_urls   = chapter_urls,
+        cover_image    = cover_image,
+        cover_url      = cover_url,
         total_chapters = total_chapters,
-        chapters_data = chapters_data,
-        start_time = start_time,
-        cancelled = false,
+        chapters_data  = chapters_data,
+        start_time     = start_time,
+        cancelled      = false,
         failed_chapters = 0,
+        partial_of     = partial_of,
     }
 
     local cancel_button = Button:new{
@@ -463,6 +542,11 @@ function M:downloadNextChapter(state, i)
                 self:saveAsEPUB(state.fiction_id, state.story_title, state.author, state.chapters_data, state.cover_image, state.chapter_urls, state.cover_url)
             else
                 self:saveAsHTML(state.fiction_id, state.story_title, state.author, state.chapters_data)
+            end
+            local entry = self.downloaded_stories[state.fiction_id]
+            if entry and state.partial_of then
+                entry.partial_of = state.partial_of
+                self:saveSettings()
             end
             if state.failed_chapters > 0 then
                 UIManager:scheduleIn(0.5, function()

@@ -1,5 +1,6 @@
 local Blitbuffer      = require("ffi/blitbuffer")
 local Device          = require("device")
+local DocSettings     = require("docsettings")
 local Geom            = require("ui/geometry")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan  = require("ui/widget/horizontalspan")
@@ -56,6 +57,22 @@ function M:manageDownloads()
     elseif sort_mode == "chapters" then
         table.sort(item_table, function(a, b)
             return #(a.chapter_urls or {}) > #(b.chapter_urls or {})
+        end)
+    elseif sort_mode == "lastread" then
+        local function last_read_time(story)
+            if story.epub_path then
+                local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                if ok and ds and ds.data then
+                    return ds.data.last_read_time or (ds.data.last_xpointer and 1 or 0)
+                end
+            end
+            return 0
+        end
+        local cache = {}
+        table.sort(item_table, function(a, b)
+            if cache[a.fiction_id] == nil then cache[a.fiction_id] = last_read_time(a) end
+            if cache[b.fiction_id] == nil then cache[b.fiction_id] = last_read_time(b) end
+            return cache[a.fiction_id] > cache[b.fiction_id]
         end)
     else
         table.sort(item_table, function(a, b)
@@ -193,7 +210,7 @@ function M:manageDownloads()
             search_dialog = InputDialog:new{
                 title       = _("Filter stories"),
                 input       = downloader._manage_filter or "",
-                input_hint  = _("Type to filter…"),
+                input_hint  = _("Type to filter..."),
                 buttons = {
                     {
                         {
@@ -359,7 +376,7 @@ function M:manageDownloads()
         search_dialog = InputDialog:new{
             title       = _("Filter stories"),
             input       = downloader._manage_filter or "",
-            input_hint  = _("Type to filter…"),
+            input_hint  = _("Type to filter..."),
             buttons = {
                 {
                     {

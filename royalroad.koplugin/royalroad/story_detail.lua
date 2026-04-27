@@ -14,6 +14,7 @@ local TextWidget      = require("ui/widget/textwidget")
 local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
+local lfs             = require("libs/libkoreader-lfs")
 local logger          = require("logger")
 local T               = require("ffi/util").template
 local _               = require("gettext")
@@ -23,6 +24,8 @@ local M = {}
 function M:showStoryOptions(fiction_id)
     local story = self.downloaded_stories[fiction_id]
     if not story then return end
+
+    local epub_exists = story.epub_path and lfs.attributes(story.epub_path, "mode") ~= nil
 
     local screen_w = Device.screen:getWidth()
     local dialog_w = math.floor(screen_w * 0.85)
@@ -66,6 +69,17 @@ function M:showStoryOptions(fiction_id)
     local last_check = story.last_update
         and os.date("%Y-%m-%d", story.last_update) or _("Never")
 
+    local read_percent = nil
+    if epub_exists then
+        local ok, doc_settings = pcall(function()
+            local DocSettings = require("docsettings")
+            return DocSettings:open(story.epub_path)
+        end)
+        if ok and doc_settings and doc_settings.data then
+            read_percent = doc_settings.data.percent_finished
+        end
+    end
+
     local info_w = dialog_w - cover_w - Size.padding.large * 3
     local meta_group = VerticalGroup:new{ align = "left" }
     table.insert(meta_group, TextBoxWidget:new{
@@ -101,6 +115,14 @@ function M:showStoryOptions(fiction_id)
         face    = Font:getFace("smallffont"),
         fgcolor = Blitbuffer.COLOR_DARK_GRAY,
     })
+    if read_percent and read_percent > 0 then
+        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
+        table.insert(meta_group, TextWidget:new{
+            text    = T(_("Progress: %1%"), math.floor(read_percent * 100)),
+            face    = Font:getFace("smallffont"),
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
+        })
+    end
 
     local header = HorizontalGroup:new{ align = "top" }
     table.insert(header, cover_frame)
@@ -108,50 +130,89 @@ function M:showStoryOptions(fiction_id)
     table.insert(header, meta_group)
 
     local ButtonTable = require("ui/widget/buttontable")
+    local buttons = {}
+
+    if epub_exists then
+        table.insert(buttons, {{
+            text = _("Open book"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                if self.manage_menu then UIManager:close(self.manage_menu) end
+                local ReaderUI = require("apps/reader/readerui")
+                UIManager:scheduleIn(0.1, function()
+                    ReaderUI:showReader(story.epub_path)
+                end)
+            end,
+        }})
+        table.insert(buttons, {{
+            text = _("Check for updates"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                if self.manage_menu then UIManager:close(self.manage_menu) end
+                self:checkSingleStoryForUpdates(fiction_id)
+            end,
+        }})
+    else
+        table.insert(buttons, {{
+            text = _("EPUB missing - Redownload"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                self:deleteAndRedownload(fiction_id)
+            end,
+        }})
+    end
+
+    if story.partial_of then
+        table.insert(buttons, {{
+            text = T(_("Resume download (%1/%2 ch)"), #(story.chapter_urls or {}), story.partial_of),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                self:resumePartialDownload(fiction_id)
+            end,
+        }})
+    end
+
+    table.insert(buttons, {{
+        text = _("Remove from tracking"),
+        callback = function()
+            UIManager:close(self.story_detail_dialog)
+            UIManager:setDirty(nil, "ui")
+            self:removeFromTracking(fiction_id)
+        end,
+    }})
+    if epub_exists then
+        table.insert(buttons, {{
+            text = _("Delete EPUB and tracking"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                self:deleteStoryCompletely(fiction_id)
+            end,
+        }})
+        table.insert(buttons, {{
+            text = _("Delete and redownload"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                self:deleteAndRedownload(fiction_id)
+            end,
+        }})
+    end
+    table.insert(buttons, {{
+        text = _("Close"),
+        callback = function()
+            UIManager:close(self.story_detail_dialog)
+            UIManager:setDirty(nil, "ui")
+        end,
+    }})
+
     local btn_table = ButtonTable:new{
-        width = dialog_w - Size.padding.large * 2,
-        buttons = {
-            {{
-                text = _("Check for updates"),
-                callback = function()
-                    UIManager:close(self.story_detail_dialog)
-                    UIManager:setDirty(nil, "ui")
-                    if self.manage_menu then UIManager:close(self.manage_menu) end
-                    self:checkSingleStoryForUpdates(fiction_id)
-                end,
-            }},
-            {{
-                text = _("Remove from tracking"),
-                callback = function()
-                    UIManager:close(self.story_detail_dialog)
-                    UIManager:setDirty(nil, "ui")
-                    self:removeFromTracking(fiction_id)
-                end,
-            }},
-            {{
-                text = _("Delete EPUB and tracking"),
-                callback = function()
-                    UIManager:close(self.story_detail_dialog)
-                    UIManager:setDirty(nil, "ui")
-                    self:deleteStoryCompletely(fiction_id)
-                end,
-            }},
-            {{
-                text = _("Delete and redownload"),
-                callback = function()
-                    UIManager:close(self.story_detail_dialog)
-                    UIManager:setDirty(nil, "ui")
-                    self:deleteAndRedownload(fiction_id)
-                end,
-            }},
-            {{
-                text = _("Close"),
-                callback = function()
-                    UIManager:close(self.story_detail_dialog)
-                    UIManager:setDirty(nil, "ui")
-                end,
-            }},
-        },
+        width    = dialog_w - Size.padding.large * 2,
+        buttons  = buttons,
         zero_sep = true,
     }
 
@@ -298,6 +359,59 @@ function M:deleteAndRedownload(fiction_id)
             end)
         end,
     })
+end
+
+function M:resumePartialDownload(fiction_id)
+    local story = self.downloaded_stories[fiction_id]
+    if not story or not story.partial_of then return end
+
+    UIManager:show(InfoMessage:new{
+        text    = T(_("Fetching chapter list for %1..."), story.title),
+        timeout = 2,
+    })
+
+    UIManager:scheduleIn(0.1, function()
+        local story_html = self:fetchPage("https://www.royalroad.com/fiction/" .. fiction_id)
+
+        if not story_html then
+            UIManager:show(InfoMessage:new{
+                text = _("Failed to fetch story page."),
+            })
+            return
+        end
+
+        local current_urls = self:extractChapterURLs(story_html, fiction_id)
+        if #current_urls == 0 then
+            UIManager:show(InfoMessage:new{
+                text = _("Could not find chapters on story page."),
+            })
+            return
+        end
+
+        local stored_set = {}
+        for _, url in ipairs(story.chapter_urls or {}) do
+            stored_set[url] = true
+        end
+
+        local has_missing = false
+        for _, url in ipairs(current_urls) do
+            if not stored_set[url] then
+                has_missing = true
+                break
+            end
+        end
+
+        if not has_missing then
+            story.partial_of = nil
+            self:saveSettings()
+            UIManager:show(InfoMessage:new{
+                text = T(_("%1 is already complete."), story.title),
+            })
+            return
+        end
+
+        self:updateStory(fiction_id, current_urls)
+    end)
 end
 
 return M
