@@ -381,6 +381,8 @@ end
 
 function M:_invalidateCoverCache(fiction_id)
     if self._cover_bb_cache and fiction_id then
+        local bb = self._cover_bb_cache[fiction_id]
+        if bb then bb:free() end
         self._cover_bb_cache[fiction_id] = nil
     end
 end

@@ -189,10 +189,7 @@ function M:manageDownloads()
 
     function StoryMenuBase:onCloseWidget()
         for _, entry in ipairs(self.item_table) do
-            if entry.cover_bb then
-                entry.cover_bb:free()
-                entry.cover_bb = nil
-            end
+            entry.cover_bb = nil
         end
         Menu.onCloseWidget(self)
     end
