@@ -30,6 +30,7 @@ function M:downloadStory()
         title      = _("Enter Royal Road Fiction ID or URL"),
         input_hint = _("e.g., 73475 or royalroad.com/fiction/73475/..."),
         input_type = "string",
+        text_height = Font:getFace("x_smallinfofont").size * 5,
         buttons = {
             {
                 {
