@@ -97,12 +97,22 @@ function M:parseSearchResults(html)
             local chapters = block:match('<span[^>]*title="Chapters"[^>]*>%s*(%d+[^<]*)</span>')
                 or block:match('(%d+)%s*[Cc]hapters?')
 
+            local tags = {}
+            for tag_text in block:gmatch('<a[^>]+class="[^"]*tag[^"]*"[^>]*>(.-)</a>') do
+                local t = tag_text:gsub("<[^>]+>", ""):gsub("^%s+", ""):gsub("%s+$", "")
+                if t ~= "" then
+                    table.insert(tags, t)
+                    if #tags >= 3 then break end
+                end
+            end
+
             if title and title ~= "" then
                 table.insert(results, {
                     fiction_id = fiction_id,
                     title      = title,
                     author     = author or "",
                     chapters   = chapters or "?",
+                    tags       = tags,
                 })
             end
         end
@@ -117,6 +127,9 @@ function M:showSearchResults(query, results)
     local item_table = {}
     for _, r in ipairs(results) do
         local sub = r.author ~= "" and (r.author .. " - " .. r.chapters .. " ch") or (r.chapters .. " ch")
+        if r.tags and #r.tags > 0 then
+            sub = sub .. " · " .. table.concat(r.tags, ", ")
+        end
         table.insert(item_table, {
             text       = r.title,
             mandatory  = sub,

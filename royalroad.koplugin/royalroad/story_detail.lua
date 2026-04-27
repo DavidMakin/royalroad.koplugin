@@ -25,6 +25,11 @@ function M:showStoryOptions(fiction_id)
     local story = self.downloaded_stories[fiction_id]
     if not story then return end
 
+    if story.unread_new_count then
+        story.unread_new_count = nil
+        self:saveSettings()
+    end
+
     local epub_exists = story.epub_path and lfs.attributes(story.epub_path, "mode") ~= nil
 
     local screen_w = Device.screen:getWidth()
@@ -216,16 +221,28 @@ function M:showStoryOptions(fiction_id)
         zero_sep = true,
     }
 
+    local main_vgroup = VerticalGroup:new{ align = "left" }
+    table.insert(main_vgroup, header)
+    table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
+    if story.description and story.description ~= "" then
+        local desc_text = story.description
+        if #desc_text > 300 then
+            desc_text = desc_text:sub(1, 297) .. "..."
+        end
+        table.insert(main_vgroup, TextBoxWidget:new{
+            text  = desc_text,
+            face  = Font:getFace("x_smallinfofont"),
+            width = dialog_w - Size.padding.large * 2,
+        })
+        table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
+    end
+    table.insert(main_vgroup, btn_table)
+
     local content = FrameContainer:new{
         padding    = Size.padding.large,
         bordersize = Size.border.window,
         background = Blitbuffer.COLOR_WHITE,
-        VerticalGroup:new{
-            align = "left",
-            header,
-            VerticalSpan:new{ width = Size.padding.large },
-            btn_table,
-        },
+        main_vgroup,
     }
 
     self.story_detail_dialog = CenterContainer:new{
@@ -246,7 +263,7 @@ function M:checkSingleStoryForUpdates(fiction_id)
 
     UIManager:scheduleIn(0.1, function()
         local story_url = "https://www.royalroad.com/fiction/" .. fiction_id
-        local story_html = self:fetchPage(story_url)
+        local story_html = self:fetchPageCached(story_url)
 
         if not story_html then
             UIManager:show(InfoMessage:new{
@@ -371,7 +388,7 @@ function M:resumePartialDownload(fiction_id)
     })
 
     UIManager:scheduleIn(0.1, function()
-        local story_html = self:fetchPage("https://www.royalroad.com/fiction/" .. fiction_id)
+        local story_html = self:fetchPageCached("https://www.royalroad.com/fiction/" .. fiction_id)
 
         if not story_html then
             UIManager:show(InfoMessage:new{

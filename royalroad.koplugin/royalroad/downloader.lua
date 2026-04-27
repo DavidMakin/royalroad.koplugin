@@ -1,5 +1,6 @@
 local Blitbuffer      = require("ffi/blitbuffer")
 local Button          = require("ui/widget/button")
+local ButtonDialog    = require("ui/widget/buttondialog")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
 local Font            = require("ui/font")
@@ -26,40 +27,53 @@ local extractEpubCover = widgets.extractEpubCover
 local M = {}
 
 function M:downloadStory()
+    local function doDownload()
+        local input = self.input_dialog:getInputText()
+        UIManager:close(self.input_dialog)
+        if input and input ~= "" then
+            local fiction_id = input:match("/fiction/(%d+)") or input:match("^%s*(%d+)%s*$")
+            if fiction_id then
+                self:processFiction(fiction_id)
+            else
+                UIManager:show(InfoMessage:new{
+                    text    = _("Invalid input. Enter a fiction ID or a Royal Road URL."),
+                    timeout = 4,
+                })
+            end
+        end
+    end
+
+    local btn_row = {
+        {
+            text = _("Cancel"),
+            callback = function()
+                UIManager:close(self.input_dialog)
+            end,
+        },
+    }
+    if Device:hasClipboard() then
+        table.insert(btn_row, {
+            text = _("Paste"),
+            callback = function()
+                local content = Device.input.getClipboardContent()
+                if content and content ~= "" then
+                    self.input_dialog:setInputText(content)
+                end
+            end,
+        })
+    end
+    table.insert(btn_row, {
+        text = _("Download"),
+        is_enter_default = true,
+        callback = doDownload,
+    })
+
     self.input_dialog = InputDialog:new{
         title      = _("Enter Royal Road Fiction ID or URL"),
         input_hint = _("e.g., 73475 or royalroad.com/fiction/73475/..."),
         input_type = "string",
         text_height = Font:getFace("x_smallinfofont").size * 5,
-        buttons = {
-            {
-                {
-                    text = _("Cancel"),
-                    callback = function()
-                        UIManager:close(self.input_dialog)
-                    end,
-                },
-                {
-                    text = _("Download"),
-                    is_enter_default = true,
-                    callback = function()
-                        local input = self.input_dialog:getInputText()
-                        UIManager:close(self.input_dialog)
-                        if input and input ~= "" then
-                            local fiction_id = input:match("/fiction/(%d+)") or input:match("^%s*(%d+)%s*$")
-                            if fiction_id then
-                                self:processFiction(fiction_id)
-                            else
-                                UIManager:show(InfoMessage:new{
-                                    text    = _("Invalid input. Enter a fiction ID or a Royal Road URL."),
-                                    timeout = 4,
-                                })
-                            end
-                        end
-                    end,
-                },
-            },
-        },
+        buttons = { btn_row },
     }
     UIManager:show(self.input_dialog)
     self.input_dialog:onShowKeyboard()
@@ -85,7 +99,7 @@ function M:processFiction(fiction_id)
     })
 
     local fiction_url = "https://www.royalroad.com/fiction/" .. fiction_id
-    local story_html = self:fetchPage(fiction_url)
+    local story_html = self:fetchPageCached(fiction_url)
 
     if not story_html then
         UIManager:show(InfoMessage:new{
@@ -99,6 +113,11 @@ function M:processFiction(fiction_id)
     local author = self:extractAuthor(story_html)
     local chapter_urls = self:extractChapterURLs(story_html, fiction_id)
     local cover_url = self:extractCoverURL(story_html)
+    local description = self:extractDescription(story_html)
+    if description and description ~= "" then
+        if not self._pending_descriptions then self._pending_descriptions = {} end
+        self._pending_descriptions[fiction_id] = description
+    end
 
     if not story_title or #chapter_urls == 0 then
         UIManager:show(InfoMessage:new{
@@ -259,6 +278,19 @@ function M:cachedExtractCover(fiction_id, epub_path)
     return extractEpubCover(epub_path)
 end
 
+function M:fetchPageCached(url)
+    if not self._page_cache then self._page_cache = {} end
+    local entry = self._page_cache[url]
+    if entry and os.time() - entry.time < 300 then
+        return entry.html
+    end
+    local html = self:fetchPage(url)
+    if html then
+        self._page_cache[url] = { html = html, time = os.time() }
+    end
+    return html
+end
+
 function M:fetchPage(page_url)
     local delays = { 2, 5 }
     for attempt = 0, #delays do
@@ -408,6 +440,21 @@ function M:extractCoverURL(html)
     return cover_url
 end
 
+function M:extractDescription(html)
+    local desc = html:match('<div[^>]+class="[^"]*description[^"]*"[^>]*>(.-)</div>')
+    if not desc then
+        desc = html:match('<meta[^>]+property="description"[^>]+content="([^"]+)"')
+            or html:match('<meta[^>]+content="([^"]+)"[^>]+property="description"')
+    end
+    if desc then
+        desc = desc:gsub("<[^>]+>", "")
+        desc = desc:gsub("&quot;", '"'):gsub("&amp;", "&"):gsub("&#39;", "'"):gsub("&nbsp;", " ")
+        desc = desc:gsub("^%s+", ""):gsub("%s+$", "")
+        desc = desc:gsub("%s+", " ")
+    end
+    return desc
+end
+
 function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, partial_of)
     local total_chapters = #chapter_urls
     local chapters_data = {}
@@ -461,6 +508,8 @@ function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover
         start_time     = start_time,
         cancelled      = false,
         failed_chapters = 0,
+        failed_indices = {},
+        failed_urls    = {},
         partial_of     = partial_of,
     }
 
@@ -547,15 +596,38 @@ function M:downloadNextChapter(state, i)
                 self:saveAsHTML(state.fiction_id, state.story_title, state.author, state.chapters_data)
             end
             local entry = self.downloaded_stories[state.fiction_id]
-            if entry and state.partial_of then
-                entry.partial_of = state.partial_of
+            if entry then
+                if state.partial_of then
+                    entry.partial_of = state.partial_of
+                end
+                if self._pending_descriptions and self._pending_descriptions[state.fiction_id] then
+                    entry.description = self._pending_descriptions[state.fiction_id]
+                    self._pending_descriptions[state.fiction_id] = nil
+                end
                 self:saveSettings()
             end
-            if state.failed_chapters > 0 then
+            if #state.failed_indices > 0 then
                 UIManager:scheduleIn(0.5, function()
-                    UIManager:show(InfoMessage:new{
-                        text = T(_("Warning: %1 chapter(s) failed to download and contain placeholder text."), state.failed_chapters),
-                    })
+                    local retry_dialog
+                    retry_dialog = ButtonDialog:new{
+                        title = T(_("Download complete. %1 chapters failed."), #state.failed_indices),
+                        buttons = {
+                            {{
+                                text = _("Retry failed chapters"),
+                                callback = function()
+                                    UIManager:close(retry_dialog)
+                                    self:_retryFailedChapters(state)
+                                end,
+                            }},
+                            {{
+                                text = _("Keep as-is"),
+                                callback = function()
+                                    UIManager:close(retry_dialog)
+                                end,
+                            }},
+                        },
+                    }
+                    UIManager:show(retry_dialog)
                 end)
             end
         else
@@ -596,6 +668,8 @@ function M:downloadNextChapter(state, i)
             else
                 logger.warn("Royal Road: Failed to extract chapter", i, "from", chapter_url)
                 state.failed_chapters = state.failed_chapters + 1
+                table.insert(state.failed_indices, i)
+                table.insert(state.failed_urls, chapter_url)
                 table.insert(state.chapters_data, {
                     title = "Chapter " .. i,
                     content = "<p>[Chapter content could not be extracted.]</p>",
@@ -604,6 +678,8 @@ function M:downloadNextChapter(state, i)
         else
             logger.warn("Royal Road: Failed to fetch chapter", i, "from", chapter_url)
             state.failed_chapters = state.failed_chapters + 1
+            table.insert(state.failed_indices, i)
+            table.insert(state.failed_urls, chapter_url)
             table.insert(state.chapters_data, {
                 title = "Chapter " .. i,
                 content = "<p>[Chapter failed to download.]</p>",
@@ -657,6 +733,49 @@ function M:extractChapterContent(html)
     end
 
     return nil
+end
+
+function M:_retryFailedChapters(state)
+    if not state.failed_urls or #state.failed_urls == 0 then return end
+    UIManager:show(InfoMessage:new{
+        text    = T(_("Retrying %1 failed chapters..."), #state.failed_urls),
+        timeout = 2,
+    })
+    UIManager:scheduleIn(0.1, function()
+        self:_doRetryFailedChapters(state, 1)
+    end)
+end
+
+function M:_doRetryFailedChapters(state, i)
+    if i > #state.failed_urls then
+        if self.use_epub then
+            self:saveAsEPUB(state.fiction_id, state.story_title, state.author, state.chapters_data, state.cover_image, state.chapter_urls, state.cover_url)
+        else
+            self:saveAsHTML(state.fiction_id, state.story_title, state.author, state.chapters_data)
+        end
+        UIManager:show(InfoMessage:new{
+            text = _("Retry complete. EPUB rebuilt with corrected chapters."),
+        })
+        return
+    end
+    local url = state.failed_urls[i]
+    local chapter_idx = state.failed_indices[i]
+    UIManager:scheduleIn(0.01, function()
+        local chapter_html = self:fetchPage(url)
+        if chapter_html then
+            local chapter_title = self:extractChapterTitle(chapter_html)
+            local chapter_content = self:extractChapterContent(chapter_html)
+            if chapter_title and chapter_content then
+                state.chapters_data[chapter_idx] = {
+                    title = chapter_title,
+                    content = chapter_content,
+                }
+            end
+        end
+        UIManager:scheduleIn(self.rate_limit_delay, function()
+            self:_doRetryFailedChapters(state, i + 1)
+        end)
+    end)
 end
 
 return M

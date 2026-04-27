@@ -12,7 +12,15 @@ local M = {}
 function M:addToMainMenu(menu_items)
     local royalroad_items = {
             {
-                text = _("Download story"),
+                text_func = function()
+                    local q = self._download_queue and #self._download_queue or 0
+                    local active = self._download_active and 1 or 0
+                    local total = q + active
+                    if total > 0 then
+                        return T(_("Download story (%1 active)"), total)
+                    end
+                    return _("Download story")
+                end,
                 keep_menu_open = true,
                 callback = function()
                     self:downloadStory()
@@ -160,7 +168,7 @@ function M:addToMainMenu(menu_items)
                     },
                     {
                         text_func = function()
-                            local labels = { title = _("Title"), date = _("Date"), chapters = _("Chapters"), lastread = _("Last read") }
+                            local labels = { title = _("Title"), date = _("Date"), chapters = _("Chapters"), lastread = _("Last read"), updated = _("Last updated") }
                             return T(_("Sort by: %1"), labels[self.manage_sort_mode] or _("Title"))
                         end,
                         keep_menu_open = true,
@@ -200,6 +208,15 @@ function M:addToMainMenu(menu_items)
                                         text     = (self.manage_sort_mode == "lastread" and "● " or "○ ") .. _("Last read"),
                                         callback = function()
                                             self.manage_sort_mode = "lastread"
+                                            self:saveSettings()
+                                            UIManager:close(dialog)
+                                            if self._plugin_menu then self._plugin_menu:updateItems() end
+                                        end,
+                                    }},
+                                    {{
+                                        text     = (self.manage_sort_mode == "updated" and "● " or "○ ") .. _("Last updated"),
+                                        callback = function()
+                                            self.manage_sort_mode = "updated"
                                             self:saveSettings()
                                             UIManager:close(dialog)
                                             if self._plugin_menu then self._plugin_menu:updateItems() end

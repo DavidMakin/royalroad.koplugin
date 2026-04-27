@@ -44,6 +44,9 @@ function M:manageDownloads()
         if story.partial_of then
             display_title = display_title .. T(_(" [%1/%2 ch]"), #(story.chapter_urls or {}), story.partial_of)
         end
+        if story.unread_new_count and story.unread_new_count > 0 then
+            display_title = display_title .. T(_(" [+%1 new]"), story.unread_new_count)
+        end
         story.text = display_title
         if filter_text == "" or (story.title or ""):lower():find(filter_text:lower(), 1, true) then
             table.insert(item_table, story)
@@ -73,6 +76,10 @@ function M:manageDownloads()
             if cache[a.fiction_id] == nil then cache[a.fiction_id] = last_read_time(a) end
             if cache[b.fiction_id] == nil then cache[b.fiction_id] = last_read_time(b) end
             return cache[a.fiction_id] > cache[b.fiction_id]
+        end)
+    elseif sort_mode == "updated" then
+        table.sort(item_table, function(a, b)
+            return (a.last_update or a.download_date or 0) > (b.last_update or b.download_date or 0)
         end)
     else
         table.sort(item_table, function(a, b)

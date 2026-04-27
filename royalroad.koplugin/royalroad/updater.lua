@@ -407,6 +407,7 @@ function M:rebuildEPUBWithNewChapters(state)
     local entry = self.downloaded_stories[state.fiction_id]
     if entry then
         entry.partial_of = nil
+        entry.unread_new_count = (entry.unread_new_count or 0) + #state.new_chapters
         self:saveSettings()
     end
 
