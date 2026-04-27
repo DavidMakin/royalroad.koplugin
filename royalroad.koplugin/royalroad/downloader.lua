@@ -162,8 +162,8 @@ function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls,
     local range_dialog
     range_dialog = InputDialog:new{
         title       = _("Select chapters to download"),
-        description = T(_("By: %1\n%2 chapters available\n\nEnter a number to download the last N chapters, a range like 1-%2, or leave as-is to download all."),
-                        author or _("Unknown"), total_available),
+        description = T(_("%1\nBy: %2\n%3 chapters available\n\nEnter a number to download the last N chapters, a range like 1-%3, or leave as-is to download all."),
+                        story_title, author or _("Unknown"), total_available),
         input      = tostring(total_available),
         input_hint = T(_("e.g. 50 or 1-%1"), total_available),
         input_type = "string",
