@@ -428,7 +428,8 @@ function M:rebuildEPUBWithNewChapters(state)
     if state.old_position.last_xpointer then
         UIManager:scheduleIn(0.5, function()
             local ok, doc_settings = pcall(function()
-                return DocSettings:open(state.story.epub_path)
+                local entry = self.downloaded_stories[state.fiction_id]
+                return DocSettings:open(entry and entry.epub_path or state.story.epub_path)
             end)
             if ok and doc_settings then
                 doc_settings.data.last_xpointer = state.old_position.last_xpointer

@@ -93,6 +93,8 @@ function RoyalRoadDownloader:loadSettings()
     self.rate_limit_delay = self.settings:readSetting("rate_limit_delay", 1.5)
     self.manage_view_mode = self.settings:readSetting("manage_view_mode", "list")
     self.manage_sort_mode = self.settings:readSetting("manage_sort_mode", "title")
+    self.mosaic_cols      = self.settings:readSetting("mosaic_cols", 3)
+    self.mosaic_rows      = self.settings:readSetting("mosaic_rows", 2)
     self.auto_check_updates = self.settings:readSetting("auto_check_updates", false)
     self.auto_check_interval_hours = self.settings:readSetting("auto_check_interval_hours", 24)
     self.last_auto_check = self.settings:readSetting("last_auto_check", 0)
@@ -109,12 +111,24 @@ function RoyalRoadDownloader:loadSettings()
 end
 
 function RoyalRoadDownloader:saveSettings()
-    self.settings:saveSetting("downloaded_stories", self.downloaded_stories)
+    local stories_to_save = {}
+    for fiction_id, story in pairs(self.downloaded_stories) do
+        local s = {}
+        for k, v in pairs(story) do
+            if k ~= "cover_bb" then
+                s[k] = v
+            end
+        end
+        stories_to_save[fiction_id] = s
+    end
+    self.settings:saveSetting("downloaded_stories", stories_to_save)
     self.settings:saveSetting("download_dir", self.download_dir)
     self.settings:saveSetting("use_epub", self.use_epub)
     self.settings:saveSetting("rate_limit_delay", self.rate_limit_delay)
     self.settings:saveSetting("manage_view_mode", self.manage_view_mode)
     self.settings:saveSetting("manage_sort_mode", self.manage_sort_mode)
+    self.settings:saveSetting("mosaic_cols",      self.mosaic_cols)
+    self.settings:saveSetting("mosaic_rows",      self.mosaic_rows)
     self.settings:saveSetting("auto_check_updates", self.auto_check_updates)
     self.settings:saveSetting("auto_check_interval_hours", self.auto_check_interval_hours)
     self.settings:saveSetting("last_auto_check", self.last_auto_check)

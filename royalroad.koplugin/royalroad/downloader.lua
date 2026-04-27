@@ -85,13 +85,44 @@ function M:processFiction(fiction_id)
         logger.info("Royal Road: Processing fiction ID:", fiction_id)
 
         if self.downloaded_stories[fiction_id] then
-            UIManager:show(InfoMessage:new{
-                text = _("Already downloaded — checking for new chapters..."),
-                timeout = 2,
-            })
-            UIManager:scheduleIn(0.1, function()
-                self:checkSingleStoryForUpdates(fiction_id)
-            end)
+            local story = self.downloaded_stories[fiction_id]
+            local already_dialog
+            already_dialog = ButtonDialog:new{
+                title = T(_("%1\nalready downloaded."), story.title or fiction_id),
+                buttons = {
+                    {
+                        {
+                            text = _("Check for updates"),
+                            callback = function()
+                                UIManager:close(already_dialog)
+                                UIManager:scheduleIn(0.1, function()
+                                    self:checkSingleStoryForUpdates(fiction_id)
+                                end)
+                            end,
+                        },
+                    },
+                    {
+                        {
+                            text = _("Re-download"),
+                            callback = function()
+                                UIManager:close(already_dialog)
+                                UIManager:scheduleIn(0.1, function()
+                                    self:deleteAndRedownload(fiction_id)
+                                end)
+                            end,
+                        },
+                    },
+                    {
+                        {
+                            text = _("Cancel"),
+                            callback = function()
+                                UIManager:close(already_dialog)
+                            end,
+                        },
+                    },
+                },
+            }
+            UIManager:show(already_dialog)
             return
         end
 
@@ -242,10 +273,10 @@ function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls,
     local range_dialog
     range_dialog = InputDialog:new{
         title       = _("Select chapters to download"),
-        description = T(_("%1\nBy: %2\n%3 chapters available\n\nEnter a number to download the last N chapters, a range like 1-%3, or leave as-is to download all."),
+        description = T(_("%1\nBy: %2\n%3 chapters available\n\nLeave as-is to download all.\nEnter a range like 1-%3 to download specific chapters.\nEnter a single number like 50 to download the last 50 chapters."),
                         story_title, author or _("Unknown"), total_available),
         input      = tostring(total_available),
-        input_hint = T(_("e.g. 50 or 1-%1"), total_available),
+        input_hint = T(_("all=%1  last 50=50  range=1-%1"), total_available),
         input_type = "string",
         buttons = {
             {
@@ -330,13 +361,28 @@ end
 
 function M:_onDownloadComplete()
     self._download_active = false
+    self._page_cache = nil
     if self._download_queue and #self._download_queue > 0 then
         UIManager:scheduleIn(1, function() self:_processDownloadQueue() end)
     end
 end
 
 function M:cachedExtractCover(fiction_id, epub_path)
-    return extractEpubCover(epub_path)
+    if not self._cover_bb_cache then self._cover_bb_cache = {} end
+    if self._cover_bb_cache[fiction_id] then
+        return self._cover_bb_cache[fiction_id]
+    end
+    local bb = extractEpubCover(epub_path)
+    if bb then
+        self._cover_bb_cache[fiction_id] = bb
+    end
+    return bb
+end
+
+function M:_invalidateCoverCache(fiction_id)
+    if self._cover_bb_cache and fiction_id then
+        self._cover_bb_cache[fiction_id] = nil
+    end
 end
 
 function M:fetchPageCached(url)
@@ -411,21 +457,15 @@ function M:fetchImage(image_url)
         return nil, nil
     end
 
-    local content_type = (headers and (headers["content-type"] or headers["Content-Type"])) or ""
     local mime_type, extension
-    if content_type:find("png") then
-        mime_type, extension = "image/png", "png"
-    elseif content_type:find("gif") then
-        mime_type, extension = "image/gif", "gif"
-    elseif content_type:find("webp") then
-        mime_type, extension = "image/webp", "webp"
-    elseif content_type:find("jpeg") or content_type:find("jpg") then
+    local b1, b2, b3, b4 = image_data:byte(1, 4)
+    if b1 == 0xFF and b2 == 0xD8 and b3 == 0xFF then
         mime_type, extension = "image/jpeg", "jpg"
-    elseif image_url:match("%.png") then
+    elseif b1 == 0x89 and b2 == 0x50 and b3 == 0x4E and b4 == 0x47 then
         mime_type, extension = "image/png", "png"
-    elseif image_url:match("%.gif") then
+    elseif b1 == 0x47 and b2 == 0x49 and b3 == 0x46 then
         mime_type, extension = "image/gif", "gif"
-    elseif image_url:match("%.webp") then
+    elseif #image_data >= 12 and image_data:sub(9, 12) == "WEBP" then
         mime_type, extension = "image/webp", "webp"
     else
         mime_type, extension = "image/jpeg", "jpg"
@@ -659,7 +699,8 @@ function M:downloadNextChapter(state, i)
             end
             local entry = self.downloaded_stories[state.fiction_id]
             if entry then
-                entry.partial_of = state.total_chapters
+                entry.partial_of    = state.total_chapters
+                entry.chapter_urls  = fetched_urls
                 self:saveSettings()
             end
             UIManager:show(InfoMessage:new{

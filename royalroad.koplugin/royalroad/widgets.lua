@@ -84,11 +84,11 @@ function StoryListItem:init()
     local story = self.story
     local info_group = VerticalGroup:new{ align = "left" }
 
-    table.insert(info_group, TextBoxWidget:new{
-        text  = story.title or "",
-        face  = Font:getFace("smalltfont"),
-        width = text_width,
-        bold  = true,
+    table.insert(info_group, TextWidget:new{
+        text      = story.title or "",
+        face      = Font:getFace("smalltfont"),
+        max_width = text_width,
+        bold      = true,
     })
     if story.author and story.author ~= "" then
         table.insert(info_group, VerticalSpan:new{ width = 2 })

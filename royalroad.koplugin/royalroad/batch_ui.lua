@@ -3,6 +3,7 @@ local ConfirmBox    = require("ui/widget/confirmbox")
 local InfoMessage   = require("ui/widget/infomessage")
 local Menu          = require("ui/widget/menu")
 local UIManager     = require("ui/uimanager")
+local ffiUtil       = require("ffi/util")
 local T             = require("ffi/util").template
 local _             = require("gettext")
 
@@ -83,6 +84,14 @@ function M:showBatchActions()
                         end,
                     }},
                     {{
+                        text     = _("Refresh covers"),
+                        callback = function()
+                            UIManager:close(action_dialog)
+                            UIManager:close(batch_menu)
+                            downloader:batchRefreshCovers(selected)
+                        end,
+                    }},
+                    {{
                         text     = _("Delete EPUBs and tracking"),
                         callback = function()
                             UIManager:close(action_dialog)
@@ -116,16 +125,37 @@ function M:batchUpdate(selected)
     end
     if #targets == 0 then return end
 
-    UIManager:show(InfoMessage:new{
-        text    = T(_("Checking %1 stories for updates..."), #targets),
-        timeout = 2,
-    })
+    local stories_with_updates = {}
+    local errors = {}
+    local total = #targets
+    local current_msg
 
-    UIManager:scheduleIn(0.1, function()
-        local stories_with_updates = {}
-        local errors = {}
-        for _, fiction_id in ipairs(targets) do
-            local story = self.downloaded_stories[fiction_id]
+    local function process_next(idx)
+        if current_msg then
+            UIManager:close(current_msg)
+            current_msg = nil
+        end
+        if idx > total then
+            if #stories_with_updates == 0 then
+                local msg = _("All selected stories are up to date!")
+                if #errors > 0 then
+                    msg = msg .. "\n\n" .. T(_("Failed to check: %1"), table.concat(errors, ", "))
+                end
+                UIManager:show(InfoMessage:new{ text = msg })
+                return
+            end
+            self:showUpdateMenu(stories_with_updates)
+            return
+        end
+
+        local fiction_id = targets[idx]
+        local story = self.downloaded_stories[fiction_id]
+        current_msg = InfoMessage:new{
+            text = T(_("Checking %1 / %2\n%3"), idx, total, story and story.title or fiction_id),
+        }
+        UIManager:show(current_msg)
+
+        UIManager:scheduleIn(0, function()
             if story then
                 local story_html = self:fetchPage("https://www.royalroad.com/fiction/" .. fiction_id)
                 if story_html then
@@ -145,19 +175,11 @@ function M:batchUpdate(selected)
                     table.insert(errors, story.title or fiction_id)
                 end
             end
-        end
+            process_next(idx + 1)
+        end)
+    end
 
-        if #stories_with_updates == 0 then
-            local msg = _("All selected stories are up to date!")
-            if #errors > 0 then
-                msg = msg .. "\n\n" .. T(_("Failed to check: %1"), table.concat(errors, ", "))
-            end
-            UIManager:show(InfoMessage:new{ text = msg })
-            return
-        end
-
-        self:showUpdateMenu(stories_with_updates)
-    end)
+    process_next(1)
 end
 
 function M:batchDelete(selected)
@@ -169,9 +191,10 @@ function M:batchDelete(selected)
                 if story.epub_path then
                     os.remove(story.epub_path)
                     local sdr_path = story.epub_path:gsub("%.epub$", ".sdr")
-                    os.execute('rm -rf "' .. sdr_path .. '"')
+                    ffiUtil.purgeDir(sdr_path)
                 end
                 self.downloaded_stories[fiction_id] = nil
+                self:_invalidateCoverCache(fiction_id)
                 count = count + 1
             end
         end
@@ -188,6 +211,51 @@ function M:batchDelete(selected)
         UIManager:close(self.manage_menu)
         self:manageDownloads()
     end
+end
+
+function M:batchRefreshCovers(selected)
+    local targets = {}
+    for fiction_id, is_selected in pairs(selected) do
+        if is_selected then table.insert(targets, fiction_id) end
+    end
+    if #targets == 0 then return end
+
+    UIManager:show(InfoMessage:new{
+        text    = T(_("Refreshing covers for %1 stories..."), #targets),
+        timeout = 2,
+    })
+
+    UIManager:scheduleIn(0.1, function()
+        local updated = 0
+        local errors  = {}
+        for _, fiction_id in ipairs(targets) do
+            local story = self.downloaded_stories[fiction_id]
+            if story and story.cover_url and story.cover_url ~= "" then
+                local image_data, mime_type, extension = self:fetchImage(story.cover_url)
+                if image_data then
+                    story.cover_image_data = image_data
+                    story.cover_mime       = mime_type
+                    story.cover_ext        = extension
+                    story.cover_bb         = nil
+                    local existing_chapters = self:extractChaptersFromEPUB(story.epub_path)
+                    if existing_chapters then
+                        local cover_image = { data = image_data, mime_type = mime_type, extension = extension }
+                        self:saveAsEPUB(story.fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url)
+                    end
+                    updated = updated + 1
+                else
+                    table.insert(errors, story.title or fiction_id)
+                end
+            end
+        end
+        self:saveSettings()
+
+        local msg = T(_("Updated covers for %1 stories."), updated)
+        if #errors > 0 then
+            msg = msg .. "\n\n" .. T(_("Failed: %1"), table.concat(errors, ", "))
+        end
+        UIManager:show(InfoMessage:new{ text = msg })
+    end)
 end
 
 return M

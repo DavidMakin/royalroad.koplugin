@@ -177,6 +177,7 @@ function M:showStoryOptions(fiction_id)
                 UIManager:close(self.story_detail_dialog)
                 UIManager:setDirty(nil, "ui")
                 if self.manage_menu then UIManager:close(self.manage_menu) end
+                if self._last_read_cache then self._last_read_cache[fiction_id] = nil end
                 local ReaderUI = require("apps/reader/readerui")
                 UIManager:scheduleIn(0.1, function()
                     ReaderUI:showReader(story.epub_path)
@@ -349,8 +350,9 @@ function M:removeFromTracking(fiction_id)
     local story = self.downloaded_stories[fiction_id]
     if not story then return end
 
-    self.downloaded_stories[fiction_id] = nil
-    self:_invalidateStoryCount()
+            self.downloaded_stories[fiction_id] = nil
+            self:_invalidateCoverCache(fiction_id)
+            self:_invalidateStoryCount()
     self:saveSettings()
 
     UIManager:show(InfoMessage:new{

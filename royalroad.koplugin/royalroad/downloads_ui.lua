@@ -71,7 +71,8 @@ function M:manageDownloads()
             end
             return 0
         end
-        local cache = {}
+        self._last_read_cache = self._last_read_cache or {}
+        local cache = self._last_read_cache
         table.sort(item_table, function(a, b)
             if cache[a.fiction_id] == nil then cache[a.fiction_id] = last_read_time(a) end
             if cache[b.fiction_id] == nil then cache[b.fiction_id] = last_read_time(b) end
@@ -90,18 +91,119 @@ function M:manageDownloads()
     local item_height = STORY_COVER_HEIGHT + STORY_ITEM_PAD * 2
     local downloader  = self
 
-    if self.manage_view_mode == "mosaic" then
-        local screen_w   = Device.screen:getWidth()
-        local cell_gap   = GRID_CELL_GAP
-        local cell_w     = math.floor((screen_w - cell_gap * (GRID_COLS - 1)) / GRID_COLS)
-        local cover_w    = cell_w - GRID_CELL_GAP * 2
-        local cover_h    = math.floor(cover_w * 3 / 2)
-        local title_h    = math.ceil(14 * 1.3) * 2
-        local cell_h     = cover_h + 4 + title_h + GRID_CELL_GAP * 2
-
-        local StoryMosaicMenu = Menu:extend{
-            _items_pending = {},
+    local function openSearch(current_menu)
+        local search_dialog
+        search_dialog = InputDialog:new{
+            title       = _("Filter stories"),
+            input       = downloader._manage_filter or "",
+            input_hint  = _("Type to filter..."),
+            buttons = {
+                {
+                    {
+                        text = _("Clear"),
+                        callback = function()
+                            UIManager:close(search_dialog)
+                            downloader._manage_filter = ""
+                            UIManager:close(current_menu)
+                            downloader:manageDownloads()
+                        end,
+                    },
+                    {
+                        text = _("Filter"),
+                        is_enter_default = true,
+                        callback = function()
+                            local q = search_dialog:getInputText()
+                            UIManager:close(search_dialog)
+                            downloader._manage_filter = q
+                            UIManager:close(current_menu)
+                            downloader:manageDownloads()
+                        end,
+                    },
+                },
+            },
         }
+        UIManager:show(search_dialog)
+        search_dialog:onShowKeyboard()
+    end
+
+    local StoryMenuBase = Menu:extend{
+        _items_pending = {},
+    }
+
+    function StoryMenuBase:updatePageInfo(select_number)
+        Menu.updatePageInfo(self, select_number)
+        if self.onReturn then
+            self.page_return_arrow:show()
+            self.page_return_arrow:enable()
+        end
+    end
+
+    function StoryMenuBase:_loadCovers()
+        local pending = self._items_pending
+        self._items_pending = {}
+        local function load_next(idx)
+            if idx > #pending then return end
+            local item   = pending[idx]
+            local entry  = item.entry
+            local widget = item.widget
+            if not entry.cover_bb then
+                local bb = downloader:cachedExtractCover(entry.fiction_id, entry.epub_path)
+                if bb then
+                    entry.cover_bb = bb
+                    widget:update()
+                    UIManager:setDirty(self.show_parent, "ui")
+                end
+            end
+            UIManager:scheduleIn(0, function() load_next(idx + 1) end)
+        end
+        load_next(1)
+    end
+
+    function StoryMenuBase:onStorySelect(story)
+        downloader:showStoryOptions(story.fiction_id)
+    end
+
+    function StoryMenuBase:onStoryHold(story)
+        local ButtonDialog = require("ui/widget/buttondialog")
+        local quick_dialog
+        quick_dialog = ButtonDialog:new{
+            title = story.title,
+            buttons = {
+                {{ text = _("Open"), callback = function()
+                    UIManager:close(quick_dialog)
+                    downloader:showStoryOptions(story.fiction_id)
+                end }},
+                {{ text = _("Check for updates"), callback = function()
+                    UIManager:close(quick_dialog)
+                    downloader:checkSingleStoryForUpdates(story.fiction_id)
+                end }},
+                {{ text = _("Delete"), callback = function()
+                    UIManager:close(quick_dialog)
+                    downloader:deleteStoryCompletely(story.fiction_id)
+                end }},
+                {{ text = _("Cancel"), callback = function() UIManager:close(quick_dialog) end }},
+            },
+        }
+        UIManager:show(quick_dialog)
+    end
+
+    function StoryMenuBase:onCloseWidget()
+        for _, entry in ipairs(self.item_table) do
+            if entry.cover_bb then
+                entry.cover_bb:free()
+                entry.cover_bb = nil
+            end
+        end
+        Menu.onCloseWidget(self)
+    end
+
+    if self.manage_view_mode == "mosaic" then
+        local cols     = downloader.mosaic_cols or 3
+        local rows     = downloader.mosaic_rows or 2
+        local screen_w = Device.screen:getWidth()
+        local title_h  = math.ceil(14 * 1.3) * 2
+
+        local StoryMosaicMenu = StoryMenuBase:extend{}
 
         function StoryMosaicMenu:_recalculateDimen()
             local top_h = (self.title_bar and not self.no_title) and self.title_bar:getHeight() or 0
@@ -110,16 +212,26 @@ function M:manageDownloads()
                 bot_h = math.max(self.page_return_arrow:getSize().h, self.page_info_text:getSize().h)
                         + Size.padding.button
             end
-            local available_h = (self.inner_dimen and self.inner_dimen.h or Device.screen:getHeight()) - top_h - bot_h
-            local rows_per_page = math.max(1, math.floor(available_h / (cell_h + GRID_ROW_GAP)))
-            self.perpage   = rows_per_page * GRID_COLS
-            self.page_num  = math.ceil(#self.item_table / self.perpage)
+            local avail_w      = self.inner_dimen and self.inner_dimen.w or screen_w
+            local avail_h      = (self.inner_dimen and self.inner_dimen.h or Device.screen:getHeight()) - top_h - bot_h
+            local cell_w       = math.floor((avail_w - GRID_CELL_GAP * (cols + 1)) / cols)
+            local cell_h       = math.floor((avail_h - GRID_ROW_GAP  * (rows + 1)) / rows)
+            local cover_w_max  = math.max(0, cell_w - GRID_CELL_GAP * 2)
+            local cover_h_max  = math.max(0, cell_h - title_h - 4 - GRID_CELL_GAP * 2)
+            local cover_h      = math.min(cover_h_max, math.floor(cover_w_max * 3 / 2))
+            local cover_w      = math.floor(cover_h * 2 / 3)
+            self._cell_w    = cell_w
+            self._cell_h    = cell_h
+            self._cover_w   = cover_w
+            self._cover_h   = cover_h
+            self.perpage    = rows * cols
+            self.page_num   = math.ceil(#self.item_table / self.perpage)
             if self.page_num > 0 and self.page > self.page_num then
                 self.page = self.page_num
             end
-            self.item_width  = self.inner_dimen and self.inner_dimen.w or screen_w
+            self.item_width  = avail_w
             self.item_height = cell_h
-            self.item_dimen  = Geom:new{ x = 0, y = 0, w = self.item_width, h = self.item_height }
+            self.item_dimen  = Geom:new{ x = 0, y = 0, w = avail_w, h = cell_h }
         end
 
         function StoryMosaicMenu:updateItems(select_number)
@@ -131,14 +243,18 @@ function M:manageDownloads()
             self.return_button:resetLayout()
             self._items_pending = {}
 
-            local idx_offset = (self.page - 1) * self.perpage
-            local rows_per_page = self.perpage / GRID_COLS
+            local cell_w  = self._cell_w
+            local cell_h  = self._cell_h
+            local cover_w = self._cover_w
+            local cover_h = self._cover_h
 
-            for row_i = 1, rows_per_page do
+            local idx_offset = (self.page - 1) * self.perpage
+
+            for row_i = 1, rows do
                 local row = HorizontalGroup:new{ align = "top" }
                 local row_layout = {}
-                for col = 1, GRID_COLS do
-                    local entry = self.item_table[idx_offset + (row_i - 1) * GRID_COLS + col]
+                for col = 1, cols do
+                    local entry = self.item_table[idx_offset + (row_i - 1) * cols + col]
                     if entry then
                         local cell = StoryCoverCell:new{
                             story        = entry,
@@ -151,8 +267,8 @@ function M:manageDownloads()
                         }
                         table.insert(row, cell)
                         table.insert(row_layout, cell)
-                        if col < GRID_COLS then
-                            table.insert(row, HorizontalSpan:new{ width = cell_gap })
+                        if col < cols then
+                            table.insert(row, HorizontalSpan:new{ width = GRID_CELL_GAP })
                         end
                         if not entry.cover_bb and entry.epub_path and lfs.attributes(entry.epub_path, "mode") then
                             table.insert(self._items_pending, { entry = entry, widget = cell })
@@ -175,110 +291,87 @@ function M:manageDownloads()
             end
         end
 
-        function StoryMosaicMenu:updatePageInfo(select_number)
-            Menu.updatePageInfo(self, select_number)
-            if self.onReturn then
-                self.page_return_arrow:show()
-                self.page_return_arrow:enable()
-            end
-        end
-
-        function StoryMosaicMenu:_loadCovers()
-            for _, pending in ipairs(self._items_pending) do
-                local entry  = pending.entry
-                local widget = pending.widget
-                if not entry.cover_bb then
-                    local bb = downloader:cachedExtractCover(entry.fiction_id, entry.epub_path)
-                    if bb then
-                        entry.cover_bb = bb
-                        widget:update()
-                    end
-                end
-            end
-            self._items_pending = {}
-        end
-
-        function StoryMosaicMenu:onStorySelect(story)
-            downloader:showStoryOptions(story.fiction_id)
-        end
-
-        function StoryMosaicMenu:onStoryHold(story)
-            local ButtonDialog = require("ui/widget/buttondialog")
-            local quick_dialog
-            quick_dialog = ButtonDialog:new{
-                title = story.title,
-                buttons = {
-                    {{ text = _("Open"), callback = function()
-                        UIManager:close(quick_dialog)
-                        downloader:showStoryOptions(story.fiction_id)
-                    end }},
-                    {{ text = _("Check for updates"), callback = function()
-                        UIManager:close(quick_dialog)
-                        downloader:checkSingleStoryForUpdates(story.fiction_id)
-                    end }},
-                    {{ text = _("Delete"), callback = function()
-                        UIManager:close(quick_dialog)
-                        downloader:deleteStoryCompletely(story.fiction_id)
-                    end }},
-                    {{ text = _("Cancel"), callback = function() UIManager:close(quick_dialog) end }},
-                },
-            }
-            UIManager:show(quick_dialog)
-        end
-
-        function StoryMosaicMenu:onCloseWidget()
-            for _, entry in ipairs(self.item_table) do
-                if entry.cover_bb then
-                    entry.cover_bb:free()
-                    entry.cover_bb = nil
-                end
-            end
-            Menu.onCloseWidget(self)
-        end
-
-        local function openSearch(current_menu)
-            local search_dialog
-            search_dialog = InputDialog:new{
-                title       = _("Filter stories"),
-                input       = downloader._manage_filter or "",
-                input_hint  = _("Type to filter..."),
-                buttons = {
-                    {
-                        {
-                            text = _("Clear"),
-                            callback = function()
-                                UIManager:close(search_dialog)
-                                downloader._manage_filter = ""
-                                UIManager:close(current_menu)
-                                downloader:manageDownloads()
-                            end,
-                        },
-                        {
-                            text = _("Filter"),
-                            is_enter_default = true,
-                            callback = function()
-                                local q = search_dialog:getInputText()
-                                UIManager:close(search_dialog)
-                                downloader._manage_filter = q
-                                UIManager:close(current_menu)
-                                downloader:manageDownloads()
-                            end,
-                        },
-                    },
-                },
-            }
-            UIManager:show(search_dialog)
-            search_dialog:onShowKeyboard()
-        end
-
         local filter_suffix = (filter_text ~= "") and T(_(" [filter: %1]"), filter_text) or ""
-        local menu = StoryMosaicMenu:new{
+        local menu
+        menu = StoryMosaicMenu:new{
             covers_fullscreen       = true,
             is_borderless           = true,
             is_popout               = false,
             title                   = T(_("Downloads (%1)"), #item_table) .. filter_suffix,
             item_table              = item_table,
             title_bar_fm_style      = true,
+            title_bar_left_icon     = "appbar.menu",
+            onLeftButtonTap         = function()
+                local ButtonDialog = require("ui/widget/buttondialog")
+                local function anchor() return menu.title_bar.left_button.image.dimen end
+
+                local function open_sort()
+                    local cur = downloader.manage_sort_mode or "title"
+                    local function lbl(mode, label)
+                        return (cur == mode and "✓ " or "    ") .. label
+                    end
+                    local d
+                    d = ButtonDialog:new{
+                        shrink_unneeded_width = true,
+                        anchor = anchor,
+                        buttons = {
+                            {{ text = lbl("title",    _("Title")),        align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "title"    downloader:manageDownloads() end }},
+                            {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "date"     downloader:manageDownloads() end }},
+                            {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "updated"  downloader:manageDownloads() end }},
+                            {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "lastread" downloader:manageDownloads() end }},
+                            {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "chapters" downloader:manageDownloads() end }},
+                        },
+                    }
+                    UIManager:show(d)
+                end
+
+                local function open_grid()
+                    local DoubleSpinWidget = require("ui/widget/doublespinwidget")
+                    local orig_cols = downloader.mosaic_cols or 3
+                    local orig_rows = downloader.mosaic_rows or 2
+                    local widget = DoubleSpinWidget:new{
+                        title_text       = _("Mosaic grid size"),
+                        width_factor     = 0.6,
+                        left_text        = _("Columns"),
+                        left_value       = orig_cols,
+                        left_min         = 2,
+                        left_max         = 8,
+                        left_default     = 3,
+                        left_precision   = "%01d",
+                        right_text       = _("Rows"),
+                        right_value      = orig_rows,
+                        right_min        = 1,
+                        right_max        = 8,
+                        right_default    = 2,
+                        right_precision  = "%01d",
+                        callback = function(left_value, right_value)
+                            downloader.mosaic_cols = left_value
+                            downloader.mosaic_rows = right_value
+                            downloader:saveSettings()
+                            UIManager:close(menu)
+                            downloader:manageDownloads()
+                        end,
+                    }
+                    UIManager:show(widget)
+                end
+
+                local view_dialog
+                view_dialog = ButtonDialog:new{
+                    shrink_unneeded_width = true,
+                    anchor = anchor,
+                    buttons = {
+                        {{ text = _("Switch to list view"), align = "left", callback = function()
+                            UIManager:close(view_dialog)
+                            UIManager:close(menu)
+                            downloader.manage_view_mode = "list"
+                            downloader:manageDownloads()
+                        end }},
+                        {{ text = _("Sort by…"),  align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
+                        {{ text = _("Grid size…"), align = "left", callback = function() UIManager:close(view_dialog) open_grid() end }},
+                    },
+                }
+                UIManager:show(view_dialog)
+            end,
             title_bar_right_icon    = "appbar.search",
             onRightButtonTap        = function(this) openSearch(this) end,
             onReturn                = function(this)
@@ -291,9 +384,7 @@ function M:manageDownloads()
         return
     end
 
-    local StoryListMenu = Menu:extend{
-        _items_pending = {},
-    }
+    local StoryListMenu = StoryMenuBase:extend{}
 
     function StoryListMenu:_recalculateDimen()
         local top_h = (self.title_bar and not self.no_title) and self.title_bar:getHeight() or 0
@@ -365,112 +456,58 @@ function M:manageDownloads()
         end
     end
 
-    function StoryListMenu:updatePageInfo(select_number)
-        Menu.updatePageInfo(self, select_number)
-        if self.onReturn then
-            self.page_return_arrow:show()
-            self.page_return_arrow:enable()
-        end
-    end
-
-    function StoryListMenu:_loadCovers()
-        for _, pending in ipairs(self._items_pending) do
-            local entry  = pending.entry
-            local widget = pending.widget
-            if not entry.cover_bb then
-                local bb = downloader:cachedExtractCover(entry.fiction_id, entry.epub_path)
-                if bb then
-                    entry.cover_bb = bb
-                    widget:update()
-                end
-            end
-        end
-        self._items_pending = {}
-    end
-
-    function StoryListMenu:onStorySelect(story)
-        downloader:showStoryOptions(story.fiction_id)
-    end
-
-    function StoryListMenu:onStoryHold(story)
-        local ButtonDialog = require("ui/widget/buttondialog")
-        local quick_dialog
-        quick_dialog = ButtonDialog:new{
-            title = story.title,
-            buttons = {
-                {{ text = _("Open"), callback = function()
-                    UIManager:close(quick_dialog)
-                    downloader:showStoryOptions(story.fiction_id)
-                end }},
-                {{ text = _("Check for updates"), callback = function()
-                    UIManager:close(quick_dialog)
-                    downloader:checkSingleStoryForUpdates(story.fiction_id)
-                end }},
-                {{ text = _("Delete"), callback = function()
-                    UIManager:close(quick_dialog)
-                    downloader:deleteStoryCompletely(story.fiction_id)
-                end }},
-                {{ text = _("Cancel"), callback = function() UIManager:close(quick_dialog) end }},
-            },
-        }
-        UIManager:show(quick_dialog)
-    end
-
-    function StoryListMenu:onCloseWidget()
-        for _, entry in ipairs(self.item_table) do
-            if entry.cover_bb then
-                entry.cover_bb:free()
-                entry.cover_bb = nil
-            end
-        end
-        Menu.onCloseWidget(self)
-    end
-
-    local function openSearch(current_menu)
-        local search_dialog
-        search_dialog = InputDialog:new{
-            title       = _("Filter stories"),
-            input       = downloader._manage_filter or "",
-            input_hint  = _("Type to filter..."),
-            buttons = {
-                {
-                    {
-                        text = _("Clear"),
-                        callback = function()
-                            UIManager:close(search_dialog)
-                            downloader._manage_filter = ""
-                            UIManager:close(current_menu)
-                            downloader:manageDownloads()
-                        end,
-                    },
-                    {
-                        text = _("Filter"),
-                        is_enter_default = true,
-                        callback = function()
-                            local q = search_dialog:getInputText()
-                            UIManager:close(search_dialog)
-                            downloader._manage_filter = q
-                            UIManager:close(current_menu)
-                            downloader:manageDownloads()
-                        end,
-                    },
-                },
-            },
-        }
-        UIManager:show(search_dialog)
-        search_dialog:onShowKeyboard()
-    end
-
     local filter_suffix = (filter_text ~= "") and T(_(" [filter: %1]"), filter_text) or ""
     local menu_title    = T(_("Downloads (%1)"), #item_table) .. filter_suffix
 
-    local menu = StoryListMenu:new{
+    local menu
+    menu = StoryListMenu:new{
         covers_fullscreen       = true,
         is_borderless           = true,
         is_popout               = false,
         title                   = menu_title,
         item_table              = item_table,
         title_bar_fm_style      = true,
+        title_bar_left_icon     = "appbar.menu",
+        onLeftButtonTap         = function()
+            local ButtonDialog = require("ui/widget/buttondialog")
+            local function anchor() return menu.title_bar.left_button.image.dimen end
+
+            local function open_sort()
+                local cur = downloader.manage_sort_mode or "title"
+                local function lbl(mode, label)
+                    return (cur == mode and "✓ " or "    ") .. label
+                end
+                local d
+                d = ButtonDialog:new{
+                    shrink_unneeded_width = true,
+                    anchor = anchor,
+                    buttons = {
+                        {{ text = lbl("title",    _("Title")),        align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "title"    downloader:manageDownloads() end }},
+                        {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "date"     downloader:manageDownloads() end }},
+                        {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "updated"  downloader:manageDownloads() end }},
+                        {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "lastread" downloader:manageDownloads() end }},
+                        {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "chapters" downloader:manageDownloads() end }},
+                    },
+                }
+                UIManager:show(d)
+            end
+
+            local view_dialog
+            view_dialog = ButtonDialog:new{
+                shrink_unneeded_width = true,
+                anchor = anchor,
+                buttons = {
+                    {{ text = _("Switch to mosaic view"), align = "left", callback = function()
+                        UIManager:close(view_dialog)
+                        UIManager:close(menu)
+                        downloader.manage_view_mode = "mosaic"
+                        downloader:manageDownloads()
+                    end }},
+                    {{ text = _("Sort by…"), align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
+                },
+            }
+            UIManager:show(view_dialog)
+        end,
         title_bar_right_icon    = "appbar.search",
         onRightButtonTap        = function(this) openSearch(this) end,
         onReturn                = function(this)
