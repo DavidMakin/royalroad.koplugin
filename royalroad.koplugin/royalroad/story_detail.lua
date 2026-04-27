@@ -215,38 +215,7 @@ function M:showStoryOptions(fiction_id)
         }})
     end
 
-    table.insert(buttons, {{
-        text = _("Edit note"),
-        callback = function()
-            UIManager:close(self.story_detail_dialog)
-            local note_dialog
-            note_dialog = InputDialog:new{
-                title = _("Story note"),
-                input = story.note or "",
-                input_type = "string",
-                text_height = Font:getFace("x_smallinfofont").size * 6,
-                buttons = {{
-                    {
-                        text = _("Cancel"),
-                        callback = function()
-                            UIManager:close(note_dialog)
-                        end,
-                    },
-                    {
-                        text = _("Save"),
-                        is_enter_default = true,
-                        callback = function()
-                            story.note = note_dialog:getInputText()
-                            UIManager:close(note_dialog)
-                            self:saveSettings()
-                        end,
-                    },
-                }},
-            }
-            UIManager:show(note_dialog)
-            note_dialog:onShowKeyboard()
-        end,
-    }})
+
     if story.cover_url and story.cover_url ~= "" then
         table.insert(buttons, {{
             text = _("Refresh cover"),
@@ -324,18 +293,6 @@ function M:showStoryOptions(fiction_id)
         end
         table.insert(main_vgroup, TextBoxWidget:new{
             text  = desc_text,
-            face  = Font:getFace("x_smallinfofont"),
-            width = dialog_w - Size.padding.large * 2,
-        })
-        table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
-    end
-    if story.note and story.note ~= "" then
-        local note_text = story.note
-        if #note_text > 200 then
-            note_text = note_text:sub(1, 197) .. "..."
-        end
-        table.insert(main_vgroup, TextBoxWidget:new{
-            text  = note_text,
             face  = Font:getFace("x_smallinfofont"),
             width = dialog_w - Size.padding.large * 2,
         })
