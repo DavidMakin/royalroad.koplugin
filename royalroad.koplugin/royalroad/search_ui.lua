@@ -130,6 +130,7 @@ function M:showSearchResults(query, results)
         if r.tags and #r.tags > 0 then
             sub = sub .. " · " .. table.concat(r.tags, ", ")
         end
+        if #sub > 40 then sub = sub:sub(1, 38) .. "…" end
         table.insert(item_table, {
             text       = r.title,
             mandatory  = sub,
