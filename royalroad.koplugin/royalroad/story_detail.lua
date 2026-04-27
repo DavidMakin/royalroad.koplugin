@@ -286,18 +286,6 @@ function M:showStoryOptions(fiction_id)
     local main_vgroup = VerticalGroup:new{ align = "left" }
     table.insert(main_vgroup, header)
     table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
-    if story.description and story.description ~= "" then
-        local desc_text = story.description
-        if #desc_text > 300 then
-            desc_text = desc_text:sub(1, 297) .. "..."
-        end
-        table.insert(main_vgroup, TextBoxWidget:new{
-            text  = desc_text,
-            face  = Font:getFace("x_smallinfofont"),
-            width = dialog_w - Size.padding.large * 2,
-        })
-        table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
-    end
     table.insert(main_vgroup, btn_table)
 
     local content = FrameContainer:new{
