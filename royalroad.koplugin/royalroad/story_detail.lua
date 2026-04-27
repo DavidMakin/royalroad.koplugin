@@ -192,36 +192,7 @@ function M:showStoryOptions(fiction_id)
                 self:checkSingleStoryForUpdates(fiction_id)
             end,
         }})
-        table.insert(buttons, {{
-            text = _("Mark as fully read"),
-            callback = function()
-                UIManager:close(self.story_detail_dialog)
-                local DocSettings = require("docsettings")
-                local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
-                if ok and ds then
-                    ds.data.percent_finished = 1.0
-                    ds.data.last_xpointer = nil
-                    ds:flush()
-                end
-                story.unread_new_count = nil
-                self:saveSettings()
-                UIManager:show(InfoMessage:new{ text = _("Marked as fully read."), timeout = 2 })
-            end,
-        }})
-        table.insert(buttons, {{
-            text = _("Reset progress"),
-            callback = function()
-                UIManager:close(self.story_detail_dialog)
-                local DocSettings = require("docsettings")
-                local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
-                if ok and ds then
-                    ds.data.percent_finished = 0
-                    ds.data.last_xpointer = nil
-                    ds:flush()
-                end
-                UIManager:show(InfoMessage:new{ text = _("Progress reset."), timeout = 2 })
-            end,
-        }})
+
     else
         table.insert(buttons, {{
             text = _("EPUB missing - Redownload"),
