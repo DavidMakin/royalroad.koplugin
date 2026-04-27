@@ -137,6 +137,14 @@ function M:showStoryOptions(fiction_id)
                 end,
             }},
             {{
+                text = _("Delete and redownload"),
+                callback = function()
+                    UIManager:close(self.story_detail_dialog)
+                    UIManager:setDirty(nil, "ui")
+                    self:deleteAndRedownload(fiction_id)
+                end,
+            }},
+            {{
                 text = _("Close"),
                 callback = function()
                     UIManager:close(self.story_detail_dialog)
@@ -256,6 +264,38 @@ function M:deleteStoryCompletely(fiction_id)
                 UIManager:close(self.manage_menu)
                 self:manageDownloads()
             end
+        end,
+    })
+end
+
+function M:deleteAndRedownload(fiction_id)
+    local ConfirmBox = require("ui/widget/confirmbox")
+
+    local story = self.downloaded_stories[fiction_id]
+    if not story then return end
+
+    UIManager:show(ConfirmBox:new{
+        text = T(_("Delete and redownload %1?\n\nThe EPUB will be deleted and a fresh download will start."), story.title),
+        ok_text = _("Delete and redownload"),
+        cancel_text = _("Cancel"),
+        ok_callback = function()
+            if story.epub_path then
+                os.remove(story.epub_path)
+                local sdr_path = story.epub_path:gsub("%.epub$", ".sdr")
+                os.execute('rm -rf "' .. sdr_path .. '"')
+            end
+
+            self.downloaded_stories[fiction_id] = nil
+            self:_invalidateStoryCount()
+            self:saveSettings()
+
+            if self.manage_menu then
+                UIManager:close(self.manage_menu)
+            end
+
+            UIManager:scheduleIn(0.1, function()
+                self:processFiction(fiction_id)
+            end)
         end,
     })
 end
