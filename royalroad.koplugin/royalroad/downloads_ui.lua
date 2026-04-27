@@ -315,11 +315,11 @@ function M:manageDownloads()
                         shrink_unneeded_width = true,
                         anchor = anchor,
                         buttons = {
-                            {{ text = lbl("title",    _("Title")),        align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "title"    downloader:manageDownloads() end }},
-                            {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "date"     downloader:manageDownloads() end }},
-                            {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "updated"  downloader:manageDownloads() end }},
-                            {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "lastread" downloader:manageDownloads() end }},
-                            {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "chapters" downloader:manageDownloads() end }},
+                        {{ text = lbl("title",    _("Title")),        align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "title"    downloader:saveSettings() downloader:manageDownloads() end }},
+                            {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "date"     downloader:saveSettings() downloader:manageDownloads() end }},
+                            {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "updated"  downloader:saveSettings() downloader:manageDownloads() end }},
+                            {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "lastread" downloader:saveSettings() downloader:manageDownloads() end }},
+                            {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "chapters" downloader:saveSettings() downloader:manageDownloads() end }},
                         },
                     }
                     UIManager:show(d)
@@ -364,6 +364,7 @@ function M:manageDownloads()
                             UIManager:close(view_dialog)
                             UIManager:close(menu)
                             downloader.manage_view_mode = "list"
+                            downloader:saveSettings()
                             downloader:manageDownloads()
                         end }},
                         {{ text = _("Sort by…"),  align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
@@ -482,11 +483,11 @@ function M:manageDownloads()
                     shrink_unneeded_width = true,
                     anchor = anchor,
                     buttons = {
-                        {{ text = lbl("title",    _("Title")),        align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "title"    downloader:manageDownloads() end }},
-                        {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "date"     downloader:manageDownloads() end }},
-                        {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "updated"  downloader:manageDownloads() end }},
-                        {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "lastread" downloader:manageDownloads() end }},
-                        {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "chapters" downloader:manageDownloads() end }},
+                        {{ text = lbl("title",    _("Title")),        align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "title"    downloader:saveSettings() downloader:manageDownloads() end }},
+                        {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "date"     downloader:saveSettings() downloader:manageDownloads() end }},
+                        {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "updated"  downloader:saveSettings() downloader:manageDownloads() end }},
+                        {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "lastread" downloader:saveSettings() downloader:manageDownloads() end }},
+                        {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() UIManager:close(d) UIManager:close(menu) downloader.manage_sort_mode = "chapters" downloader:saveSettings() downloader:manageDownloads() end }},
                     },
                 }
                 UIManager:show(d)
@@ -501,6 +502,7 @@ function M:manageDownloads()
                         UIManager:close(view_dialog)
                         UIManager:close(menu)
                         downloader.manage_view_mode = "mosaic"
+                        downloader:saveSettings()
                         downloader:manageDownloads()
                     end }},
                     {{ text = _("Sort by…"), align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
