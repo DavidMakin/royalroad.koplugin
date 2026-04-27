@@ -176,6 +176,50 @@ function M:processFiction(fiction_id)
     end)
 end
 
+function M:processFictionAll(fiction_id)
+    NetworkMgr:runWhenOnline(function()
+        logger.info("Royal Road: Bulk processing fiction ID:", fiction_id)
+
+        if self.downloaded_stories[fiction_id] then
+            UIManager:scheduleIn(0.1, function()
+                self:checkSingleStoryForUpdates(fiction_id)
+            end)
+            return
+        end
+
+        UIManager:show(InfoMessage:new{
+            text = T(_("Fetching story %1..."), fiction_id),
+            timeout = 2,
+        })
+
+        local fiction_url = "https://www.royalroad.com/fiction/" .. fiction_id
+        local story_html = self:fetchPageCached(fiction_url)
+        if not story_html then return end
+
+        local story_title = self:extractTitle(story_html)
+        local author = self:extractAuthor(story_html)
+        local chapter_urls = self:extractChapterURLs(story_html, fiction_id)
+        local cover_url = self:extractCoverURL(story_html)
+        local description = self:extractDescription(story_html)
+        if description and description ~= "" then
+            if not self._pending_descriptions then self._pending_descriptions = {} end
+            self._pending_descriptions[fiction_id] = description
+        end
+
+        if not story_title or #chapter_urls == 0 then return end
+
+        local cover_image = nil
+        if cover_url then
+            local image_data, mime_type, extension = self:fetchImage(cover_url)
+            if image_data then
+                cover_image = { data = image_data, mime_type = mime_type, extension = extension }
+            end
+        end
+
+        self:queueDownload(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, nil)
+    end)
+end
+
 function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, total_available)
     local function doDownload(from_ch, to_ch)
         local selected_urls = {}
@@ -868,7 +912,7 @@ function M:bulkImport()
                     })
                     for i, id in ipairs(ids) do
                         UIManager:scheduleIn(0.2 * i, function()
-                            self:processFiction(id)
+                            self:processFictionAll(id)
                         end)
                     end
                 end,
