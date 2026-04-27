@@ -137,6 +137,10 @@ function StoryListItem:init()
 end
 
 function StoryListItem:update()
+    if self[1] then
+        self[1]:free()
+        self[1] = nil
+    end
     self:init()
     UIManager:setDirty(self.show_parent, function()
         return "ui", self.dimen
@@ -237,6 +241,10 @@ function StoryCoverCell:init()
 end
 
 function StoryCoverCell:update()
+    if self[1] then
+        self[1]:free()
+        self[1] = nil
+    end
     self:init()
     UIManager:setDirty(self.show_parent, function()
         return "ui", self.dimen

@@ -220,16 +220,42 @@ function M:batchRefreshCovers(selected)
     end
     if #targets == 0 then return end
 
-    UIManager:show(InfoMessage:new{
-        text    = T(_("Refreshing covers for %1 stories..."), #targets),
-        timeout = 2,
-    })
+    local total   = #targets
+    local updated = 0
+    local errors  = {}
+    local current_msg
 
-    UIManager:scheduleIn(0.1, function()
-        local updated = 0
-        local errors  = {}
-        for _, fiction_id in ipairs(targets) do
-            local story = self.downloaded_stories[fiction_id]
+    local function finish()
+        if current_msg then
+            UIManager:close(current_msg)
+            current_msg = nil
+        end
+        self:saveSettings()
+        local msg = T(_("Updated covers for %1 stories."), updated)
+        if #errors > 0 then
+            msg = msg .. "\n\n" .. T(_("Failed: %1"), table.concat(errors, ", "))
+        end
+        UIManager:show(InfoMessage:new{ text = msg })
+    end
+
+    local function process_next(idx)
+        if current_msg then
+            UIManager:close(current_msg)
+            current_msg = nil
+        end
+        if idx > total then
+            finish()
+            return
+        end
+
+        local fiction_id = targets[idx]
+        local story = self.downloaded_stories[fiction_id]
+        current_msg = InfoMessage:new{
+            text = T(_("Refreshing cover %1 / %2\n%3"), idx, total, story and story.title or fiction_id),
+        }
+        UIManager:show(current_msg)
+
+        UIManager:scheduleIn(0, function()
             if story and story.cover_url and story.cover_url ~= "" then
                 local image_data, mime_type, extension = self:fetchImage(story.cover_url)
                 if image_data then
@@ -237,25 +263,22 @@ function M:batchRefreshCovers(selected)
                     story.cover_mime       = mime_type
                     story.cover_ext        = extension
                     story.cover_bb         = nil
+                    self:_invalidateCoverCache(fiction_id)
                     local existing_chapters = self:extractChaptersFromEPUB(story.epub_path)
                     if existing_chapters then
                         local cover_image = { data = image_data, mime_type = mime_type, extension = extension }
-                        self:saveAsEPUB(story.fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url)
+                        self:saveAsEPUB(fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url)
                     end
                     updated = updated + 1
                 else
                     table.insert(errors, story.title or fiction_id)
                 end
             end
-        end
-        self:saveSettings()
+            process_next(idx + 1)
+        end)
+    end
 
-        local msg = T(_("Updated covers for %1 stories."), updated)
-        if #errors > 0 then
-            msg = msg .. "\n\n" .. T(_("Failed: %1"), table.concat(errors, ", "))
-        end
-        UIManager:show(InfoMessage:new{ text = msg })
-    end)
+    process_next(1)
 end
 
 return M

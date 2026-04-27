@@ -17,7 +17,8 @@ local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
 local lfs             = require("libs/libkoreader-lfs")
 local logger          = require("logger")
-local T               = require("ffi/util").template
+local ffiUtil         = require("ffi/util")
+local T               = ffiUtil.template
 local _               = require("gettext")
 
 local M = {}
@@ -234,7 +235,7 @@ function M:showStoryOptions(fiction_id)
                         local existing_chapters, ch_err = self:extractChaptersFromEPUB(story.epub_path)
                         if existing_chapters then
                             local cover_image = { data = image_data, mime_type = mime_type, extension = extension }
-                            self:saveAsEPUB(story.fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url)
+                            self:saveAsEPUB(fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url)
                         end
                         UIManager:show(InfoMessage:new{ text = _("Cover updated!"), timeout = 2 })
                     else
@@ -379,7 +380,7 @@ function M:deleteStoryCompletely(fiction_id)
             if story.epub_path then
                 os.remove(story.epub_path)
                 local sdr_path = story.epub_path:gsub("%.epub$", ".sdr")
-                os.execute('rm -rf "' .. sdr_path .. '"')
+                ffiUtil.purgeDir(sdr_path)
             end
 
             self.downloaded_stories[fiction_id] = nil
@@ -412,7 +413,7 @@ function M:deleteAndRedownload(fiction_id)
             if story.epub_path then
                 os.remove(story.epub_path)
                 local sdr_path = story.epub_path:gsub("%.epub$", ".sdr")
-                os.execute('rm -rf "' .. sdr_path .. '"')
+                ffiUtil.purgeDir(sdr_path)
             end
 
             self.downloaded_stories[fiction_id] = nil

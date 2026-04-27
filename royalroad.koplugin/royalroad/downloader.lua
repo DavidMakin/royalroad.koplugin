@@ -275,8 +275,8 @@ function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls,
         title       = _("Select chapters to download"),
         description = T(_("%1\nBy: %2\n%3 chapters available\n\nLeave as-is to download all.\nEnter a range like 1-%3 to download specific chapters.\nEnter a single number like 50 to download the last 50 chapters."),
                         story_title, author or _("Unknown"), total_available),
-        input      = tostring(total_available),
-        input_hint = T(_("all=%1  last 50=50  range=1-%1"), total_available),
+        input      = "1-" .. tostring(total_available),
+        input_hint = T(_("all=1-%1  last 50=50  range=1-%1"), total_available),
         input_type = "string",
         buttons = {
             {
@@ -368,13 +368,24 @@ function M:_onDownloadComplete()
 end
 
 function M:cachedExtractCover(fiction_id, epub_path)
-    if not self._cover_bb_cache then self._cover_bb_cache = {} end
+    if not self._cover_bb_cache then
+        self._cover_bb_cache = {}
+        self._cover_bb_order = {}
+    end
     if self._cover_bb_cache[fiction_id] then
         return self._cover_bb_cache[fiction_id]
     end
     local bb = extractEpubCover(epub_path)
     if bb then
+        local MAX_COVERS = 50
+        if #self._cover_bb_order >= MAX_COVERS then
+            local oldest = table.remove(self._cover_bb_order, 1)
+            local old_bb = self._cover_bb_cache[oldest]
+            if old_bb then old_bb:free() end
+            self._cover_bb_cache[oldest] = nil
+        end
         self._cover_bb_cache[fiction_id] = bb
+        table.insert(self._cover_bb_order, fiction_id)
     end
     return bb
 end
@@ -384,6 +395,14 @@ function M:_invalidateCoverCache(fiction_id)
         local bb = self._cover_bb_cache[fiction_id]
         if bb then bb:free() end
         self._cover_bb_cache[fiction_id] = nil
+        if self._cover_bb_order then
+            for i, id in ipairs(self._cover_bb_order) do
+                if id == fiction_id then
+                    table.remove(self._cover_bb_order, i)
+                    break
+                end
+            end
+        end
     end
 end
 
@@ -976,6 +995,14 @@ function M:exportReadingList()
                 callback = function()
                     UIManager:close(export_dialog)
                     local DocSettings = require("docsettings")
+                    local function json_str(s)
+                        return (s or "")
+                            :gsub('\\', '\\\\')
+                            :gsub('"',  '\\"')
+                            :gsub('\n', '\\n')
+                            :gsub('\r', '\\r')
+                            :gsub('\t', '\\t')
+                    end
                     local entries = {}
                     for fiction_id, story in pairs(self.downloaded_stories) do
                         local progress = 0
@@ -987,12 +1014,12 @@ function M:exportReadingList()
                         end
                         local entry = string.format(
                             '{"fiction_id":"%s","title":"%s","author":"%s","chapters":%d,"progress":%s,"epub_path":"%s"}',
-                            fiction_id,
-                            (story.title or ""):gsub('"', '\\"'),
-                            (story.author or ""):gsub('"', '\\"'),
+                            json_str(fiction_id),
+                            json_str(story.title),
+                            json_str(story.author),
                             #(story.chapter_urls or {}),
                             tostring(progress),
-                            (story.epub_path or ""):gsub('"', '\\"')
+                            json_str(story.epub_path)
                         )
                         table.insert(entries, entry)
                     end

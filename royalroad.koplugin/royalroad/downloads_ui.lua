@@ -27,6 +27,7 @@ local GRID_ROW_GAP       = widgets.GRID_ROW_GAP
 local M = {}
 
 function M:manageDownloads()
+    self._last_read_cache = nil
     if self:countDownloadedStories() == 0 then
         UIManager:show(InfoMessage:new{
             text    = _("No downloaded stories."),

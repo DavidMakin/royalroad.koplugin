@@ -32,17 +32,17 @@ function M:saveAsHTML(fiction_id, story_title, author, chapters)
         '<html>',
         '<head>',
         '<meta charset="utf-8"/>',
-        '<title>' .. story_title .. '</title>',
+        '<title>' .. self:escapeXML(story_title) .. '</title>',
         '</head>',
         '<body>',
-        '<h1>' .. story_title .. '</h1>',
-        '<p><em>By ' .. author .. '</em></p>',
+        '<h1>' .. self:escapeXML(story_title) .. '</h1>',
+        '<p><em>By ' .. self:escapeXML(author) .. '</em></p>',
         '<hr/>',
     }
 
-    for i, chapter in ipairs(chapters) do
+    for _, chapter in ipairs(chapters) do
         table.insert(html_parts, '<div>')
-        table.insert(html_parts, '<h2>' .. chapter.title .. '</h2>')
+        table.insert(html_parts, '<h2>' .. self:escapeXML(chapter.title) .. '</h2>')
         table.insert(html_parts, chapter.content)
         table.insert(html_parts, '</div><hr/>')
     end

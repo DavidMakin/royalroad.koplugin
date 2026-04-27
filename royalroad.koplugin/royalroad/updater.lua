@@ -78,6 +78,7 @@ function M:performUpdateCheck()
                 table.insert(errors, story.title)
                 logger.warn("Royal Road: Failed to fetch story page for", fiction_id)
             end
+            socket.sleep(self.rate_limit_delay)
         end
 
         if #stories_with_updates == 0 then
@@ -206,12 +207,12 @@ function M:updateStory(fiction_id, current_urls, on_complete)
     end
 
     local stored_set = {}
-    for i, url in ipairs(story.chapter_urls or {}) do
+    for _, url in ipairs(story.chapter_urls or {}) do
         stored_set[url] = true
     end
 
     local new_urls = {}
-    for i, url in ipairs(current_urls) do
+    for _, url in ipairs(current_urls) do
         if not stored_set[url] then
             table.insert(new_urls, url)
         end
@@ -417,6 +418,7 @@ function M:rebuildEPUBWithNewChapters(state)
         state.all_urls,
         cover_url
     )
+    self._cover_cache = nil
 
     local entry = self.downloaded_stories[state.fiction_id]
     if entry then
