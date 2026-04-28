@@ -3,24 +3,17 @@ local UIManager   = require("ui/uimanager")
 local lfs         = require("libs/libkoreader-lfs")
 local logger      = require("logger")
 local T           = require("ffi/util").template
+local util        = require("util")
 local _           = require("gettext")
 
 local M = {}
 
 local _plugin_dir = debug.getinfo(1, "S").source:match("^@(.+)/[^/]+$") or "."
 
-local function readFile(path)
-    local f = io.open(path, "r")
-    if not f then return nil end
-    local content = f:read("*a")
-    f:close()
-    return content
-end
-
 function M:ensureDownloadDir()
-    if not lfs.attributes(self.download_dir, "mode") then
-        logger.info("Royal Road: Creating directory:", self.download_dir)
-        lfs.mkdir(self.download_dir)
+    local ok, err = util.makePath(self.download_dir)
+    if not ok and err then
+        logger.warn("Royal Road: Could not create download dir:", err)
     end
 end
 
@@ -50,7 +43,7 @@ function M:saveAsHTML(fiction_id, story_title, author, chapters)
     table.insert(html_parts, '</body></html>')
 
     local full_html = table.concat(html_parts, "\n")
-    local safe_title = story_title:gsub("[^%w%s%-]", ""):gsub("%s+", "_")
+    local safe_title = util.getSafeFilename(story_title)
     local filename = string.format("%s/%s_%s.html", self.download_dir, safe_title, fiction_id)
 
     local file = io.open(filename, "w")
@@ -102,7 +95,7 @@ end
 
 function M:escapeXML(text)
     if not text then return "" end
-    return text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"):gsub("'", "&apos;")
+    return util.htmlEscape(text)
 end
 
 function M:extractChaptersFromEPUB(epub_path)
@@ -187,7 +180,7 @@ end
 function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, chapter_urls, cover_url)
     self:ensureDownloadDir()
 
-    local safe_title = story_title:gsub("[^%w%s%-]", ""):gsub("%s+", "_")
+    local safe_title = util.getSafeFilename(story_title)
     local filename = string.format("%s/%s_%s.epub", self.download_dir, safe_title, fiction_id)
 
     local ok, result = pcall(function()
@@ -354,9 +347,9 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 </html>]], escaped_title, table.concat(nav_entries, "\n"), table.concat(nav_landmarks, "\n"))
         epub:addFileFromMemory("nav.xhtml", nav_xhtml)
 
-        local css_before = readFile(_plugin_dir .. "/ReadiumCSS-before.css") or ""
-        local css_default = readFile(_plugin_dir .. "/ReadiumCSS-default.css") or ""
-        local css_after = readFile(_plugin_dir .. "/ReadiumCSS-after.css") or ""
+local css_before = util.readFromFile(_plugin_dir .. "/ReadiumCSS-before.css") or ""
+local css_default = util.readFromFile(_plugin_dir .. "/ReadiumCSS-default.css") or ""
+local css_after = util.readFromFile(_plugin_dir .. "/ReadiumCSS-after.css") or ""
         epub:addFileFromMemory("ReadiumCSS-before.css", css_before)
         epub:addFileFromMemory("ReadiumCSS-default.css", css_default)
         epub:addFileFromMemory("ReadiumCSS-after.css", css_after)

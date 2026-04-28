@@ -19,6 +19,7 @@ local http            = require("socket.http")
 local ltn12           = require("ltn12")
 local socketutil      = require("socketutil")
 local T               = require("ffi/util").template
+local util            = require("util")
 local _               = require("gettext")
 local NetworkMgr      = require("ui/network/manager")
 
@@ -500,7 +501,7 @@ function M:extractTitle(html)
     local title = html:match('<h1[^>]*property="name"[^>]*>%s*(.-)%s*</h1>')
         or html:match('<h1[^>]*>%s*(.-)%s*</h1>')
     if title then
-        title = title:gsub("&quot;", '"'):gsub("&amp;", "&"):gsub("&#39;", "'")
+        title = util.htmlEntitiesToUtf8(title)
         title = title:gsub("<[^>]+>", "")
     end
     return title
@@ -510,7 +511,7 @@ function M:extractAuthor(html)
     local author = html:match('property="author"[^>]*>%s*<span[^>]*>%s*(.-)%s*</span>')
         or html:match('<meta%s+property="books:author"%s+content="([^"]+)"')
     if author then
-        author = author:gsub("&quot;", '"'):gsub("&amp;", "&")
+        author = util.htmlEntitiesToUtf8(author)
     end
     return author or "Unknown"
 end
@@ -570,7 +571,7 @@ function M:extractDescription(html)
     end
     if desc then
         desc = desc:gsub("<[^>]+>", "")
-        desc = desc:gsub("&quot;", '"'):gsub("&amp;", "&"):gsub("&#39;", "'"):gsub("&nbsp;", " ")
+        desc = util.htmlEntitiesToUtf8(desc)
         desc = desc:gsub("^%s+", ""):gsub("%s+$", "")
         desc = desc:gsub("%s+", " ")
     end
@@ -857,7 +858,7 @@ function M:extractChapterTitle(html)
     local title = html:match('<h1[^>]*>%s*(.-)%s*</h1>')
         or html:match('<h2[^>]*>%s*(.-)%s*</h2>')
     if title then
-        title = title:gsub("&quot;", '"'):gsub("&amp;", "&"):gsub("&#39;", "'")
+        title = util.htmlEntitiesToUtf8(title)
         title = title:gsub("<[^>]+>", "")
     end
     return title or "Chapter"
@@ -886,7 +887,7 @@ function M:extractChapterContent(html)
             depth = depth - 1
             if depth == 0 then
                 local content = html:sub(content_start, close_pos - 1)
-                content = content:gsub("&quot;", '"'):gsub("&amp;", "&"):gsub("&#39;", "'"):gsub("&nbsp;", " ")
+                content = util.htmlEntitiesToUtf8(content)
                 return content
             end
             pos = close_pos + 6

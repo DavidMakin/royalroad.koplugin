@@ -6,6 +6,7 @@ local UIManager      = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local lfs            = require("libs/libkoreader-lfs")
 local logger         = require("logger")
+local util           = require("util")
 local _              = require("gettext")
 
 local RoyalRoadDownloader = WidgetContainer:extend{
@@ -137,9 +138,7 @@ end
 
 function RoyalRoadDownloader:countDownloadedStories()
     if self._story_count == nil then
-        local count = 0
-        for _ in pairs(self.downloaded_stories) do count = count + 1 end
-        self._story_count = count
+        self._story_count = util.tableSize(self.downloaded_stories)
     end
     return self._story_count
 end

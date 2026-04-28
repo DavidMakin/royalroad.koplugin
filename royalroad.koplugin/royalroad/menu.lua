@@ -5,6 +5,7 @@ local Menu          = require("ui/widget/menu")
 local UIManager     = require("ui/uimanager")
 local lfs           = require("libs/libkoreader-lfs")
 local T             = require("ffi/util").template
+local util          = require("util")
 local _             = require("gettext")
 
 local M = {}
@@ -397,9 +398,7 @@ function M:chooseDownloadFolder()
 end
 
 function M:openDownloadsFolder()
-    if not lfs.attributes(self.download_dir, "mode") then
-        lfs.mkdir(self.download_dir)
-    end
+    util.makePath(self.download_dir)
 
     local FileManager = require("apps/filemanager/filemanager")
     if self.ui.document then

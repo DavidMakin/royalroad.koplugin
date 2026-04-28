@@ -5,6 +5,7 @@ local NetworkMgr  = require("ui/network/manager")
 local UIManager   = require("ui/uimanager")
 local logger      = require("logger")
 local T           = require("ffi/util").template
+local util        = require("util")
 local _           = require("gettext")
 
 local M = {}
@@ -49,9 +50,7 @@ function M:performSearch(query)
         })
 
         UIManager:scheduleIn(0.1, function()
-            local encoded = query:gsub(" ", "+"):gsub("[^%w%+%-_%.~]", function(c)
-                return string.format("%%%02X", c:byte())
-            end)
+            local encoded = util.urlEncode(query)
             local url = "https://www.royalroad.com/fictions/search?title=" .. encoded
 
             local html = self:fetchPage(url)
@@ -87,7 +86,8 @@ function M:parseSearchResults(html)
             local title = block:match('<h2[^>]*>%s*(.-)%s*</h2>')
                 or block:match('class="[^"]*fiction%-title[^"]*"[^>]*>%s*(.-)%s*<')
             if title then
-                title = title:gsub("<[^>]+>", ""):gsub("&quot;", '"'):gsub("&amp;", "&"):gsub("&#39;", "'")
+                title = title:gsub("<[^>]+>", "")
+                title = util.htmlEntitiesToUtf8(title)
                 title = title:gsub("^%s+", ""):gsub("%s+$", "")
             end
 
