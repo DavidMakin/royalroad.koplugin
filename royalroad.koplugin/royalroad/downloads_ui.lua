@@ -133,7 +133,7 @@ function M:manageDownloads()
 
     function StoryMenuBase:updatePageInfo(select_number)
         Menu.updatePageInfo(self, select_number)
-        if self.onReturn then
+        if self.onReturn and self.page_return_arrow then
             self.page_return_arrow:show()
             self.page_return_arrow:enable()
         end
@@ -237,8 +237,6 @@ function M:manageDownloads()
             self.item_group:clear()
             local old_dimen = self.dimen and self.dimen:copy()
             self:_recalculateDimen()
-            self.page_info:resetLayout()
-            self.return_button:resetLayout()
             self._items_pending = {}
 
             local cell_w  = self._cell_w
@@ -401,6 +399,8 @@ function M:manageDownloads()
         self.item_width  = self.inner_dimen and self.inner_dimen.w or Device.screen:getWidth()
         self.item_height = item_height
         self.item_dimen  = Geom:new{ x = 0, y = 0, w = self.item_width, h = self.item_height }
+        if self.page_info then self.page_info:resetLayout() end
+        if self.return_button then self.return_button:resetLayout() end
     end
 
     function StoryListMenu:updateItems(select_number)
@@ -408,8 +408,6 @@ function M:manageDownloads()
         self.item_group:clear()
         local old_dimen = self.dimen and self.dimen:copy()
         self:_recalculateDimen()
-        self.page_info:resetLayout()
-        self.return_button:resetLayout()
         self._items_pending = {}
 
         local idx_offset = (self.page - 1) * self.perpage

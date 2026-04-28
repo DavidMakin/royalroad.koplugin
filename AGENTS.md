@@ -124,6 +124,25 @@ All dependencies provided by KOReader:
 - `datastorage`, `ffi/util` - File operations
 - `gettext` - Internationalization
 
+## Cross-Platform Compatibility (MANDATORY)
+
+This plugin must work on **all devices KOReader supports**: Kindle, Kobo, Android, Linux, macOS, and any other platform KOReader runs on.
+
+- **Never write device-specific code** unless the feature is genuinely unavailable on other platforms (e.g. Android wake lock APIs).
+- When accessing KOReader widget internals (fields like `page_return_arrow`, `return_button`, `page_info`, etc.), always guard with `if self.field then` — these may be absent or named differently across KOReader versions and platforms.
+- Test logic paths mentally for both e-ink devices (Kindle/Kobo) and general-purpose OSes (Android/Linux).
+- If a platform-specific branch is truly required, wrap it with the appropriate `Device:isKindle()`, `Device:isAndroid()`, etc. check and leave a comment explaining why no cross-platform alternative exists.
+- Any bug that only reproduces on one platform is a bug — fix it portably, not with a platform guard.
+
+## Use KOReader Built-ins First (MANDATORY)
+
+Before writing any new helper function, utility, or feature, check whether KOReader already provides it.
+
+- Search the KOReader source (`util`, `ffi/util`, `ui/widget/*`, `luasettings`, `datastorage`, `socketutil`, etc.) before rolling your own.
+- KOReader's utility modules cover: string manipulation, file operations, HTTP, table helpers, time formatting, screen dimensions, path handling, and more.
+- If KOReader provides it, use it. Do not duplicate it.
+- If unsure whether something exists, check the [KOReader API docs](https://koreader.rocks/doc/) or grep the KOReader source before writing new code.
+
 ## Known Limitations
 
 - No official APIs - relies on HTML scraping
