@@ -185,112 +185,90 @@ function M:extractChaptersFromEPUB(epub_path)
     return chapters
 end
 
-function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, chapter_urls, cover_url)
-    self:ensureDownloadDir()
+-- Builds manifest/spine/nav structures for OPF, NCX and nav.xhtml.
+-- Returns: manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, first_chapter_file
+function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
+    local manifest_items = {}
+    local spine_items    = {}
+    local nav_points     = {}
+    local nav_entries    = {}
+    local nav_landmarks  = {}
+    local play_order     = 1
 
-    local safe_title = util.getSafeFilename(story_title)
-    local filename = string.format("%s/%s_%s.epub", self.download_dir, safe_title, fiction_id)
-
-    local ok, result = pcall(function()
-        local Archiver = require("ffi/archiver")
-        local epub = Archiver.Writer:new{}
-        if not epub:open(filename, "epub") then
-            error("Failed to create EPUB file")
-        end
-
-        local book_id = "royalroad-" .. fiction_id
-        local escaped_title = self:escapeXML(story_title)
-        local escaped_author = self:escapeXML(author)
-
-        epub:addFileFromMemory("mimetype", "application/epub+zip")
-
-        local container_xml = [[<?xml version="1.0" encoding="UTF-8"?>
-<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
-  <rootfiles>
-    <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
-  </rootfiles>
-</container>]]
-        epub:addFileFromMemory("META-INF/container.xml", container_xml)
-
-        local manifest_items = {}
-        local spine_items = {}
-        local nav_points = {}
-        local nav_entries = {}
-        local nav_landmarks = {}
-        local play_order = 1
-
-        local has_cover = cover_image and cover_image.data
-        if has_cover then
-            local cover_filename = "cover." .. cover_image.extension
-            table.insert(manifest_items, string.format(
-                '    <item id="cover" href="%s" media-type="%s" properties="cover-image"/>',
-                cover_filename, cover_image.mime_type))
-            table.insert(manifest_items,
-                '    <item id="titlepage" href="cover.xhtml" media-type="application/xhtml+xml"/>')
-            table.insert(spine_items, '    <itemref idref="titlepage"/>')
-
-            table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
+    local has_cover = cover_image and cover_image.data
+    if has_cover then
+        local cover_filename = "cover." .. cover_image.extension
+        table.insert(manifest_items, string.format(
+            '    <item id="cover" href="%s" media-type="%s" properties="cover-image"/>',
+            cover_filename, cover_image.mime_type))
+        table.insert(manifest_items,
+            '    <item id="titlepage" href="cover.xhtml" media-type="application/xhtml+xml"/>')
+        table.insert(spine_items, '    <itemref idref="titlepage"/>')
+        table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
       <navLabel><text>Cover</text></navLabel>
       <content src="cover.xhtml"/>
     </navPoint>]], play_order, play_order))
-            table.insert(nav_entries, '      <li><a href="cover.xhtml">Cover</a></li>')
-            table.insert(nav_landmarks,
-                '      <li><a epub:type="cover" href="cover.xhtml">Cover</a></li>')
-            play_order = play_order + 1
-        end
+        table.insert(nav_entries,   '      <li><a href="cover.xhtml">Cover</a></li>')
+        table.insert(nav_landmarks, '      <li><a epub:type="cover" href="cover.xhtml">Cover</a></li>')
+        play_order = play_order + 1
+    end
 
-        table.insert(manifest_items,
-            '    <item id="title-page" href="title.xhtml" media-type="application/xhtml+xml"/>')
-        table.insert(spine_items, '    <itemref idref="title-page"/>')
-        table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
+    table.insert(manifest_items,
+        '    <item id="title-page" href="title.xhtml" media-type="application/xhtml+xml"/>')
+    table.insert(spine_items, '    <itemref idref="title-page"/>')
+    table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
       <navLabel><text>Title Page</text></navLabel>
       <content src="title.xhtml"/>
     </navPoint>]], play_order, play_order))
-        table.insert(nav_entries, '      <li><a href="title.xhtml">Title Page</a></li>')
-        table.insert(nav_landmarks,
-            '      <li><a epub:type="frontmatter" href="title.xhtml">Title Page</a></li>')
-        play_order = play_order + 1
+    table.insert(nav_entries,   '      <li><a href="title.xhtml">Title Page</a></li>')
+    table.insert(nav_landmarks, '      <li><a epub:type="frontmatter" href="title.xhtml">Title Page</a></li>')
+    play_order = play_order + 1
 
-        local first_chapter_file = nil
-        for i, chapter in ipairs(chapters) do
-            local chapter_id = string.format("chapter-%03d", i)
-            local chapter_file = string.format("chapter_%03d.xhtml", i)
-            table.insert(manifest_items, string.format(
-                '    <item id="%s" href="%s" media-type="application/xhtml+xml"/>',
-                chapter_id, chapter_file))
-            table.insert(spine_items, string.format('    <itemref idref="%s"/>', chapter_id))
+    local first_chapter_file = nil
+    for i, chapter in ipairs(chapters) do
+        local chapter_id   = string.format("chapter-%03d", i)
+        local chapter_file = string.format("chapter_%03d.xhtml", i)
+        table.insert(manifest_items, string.format(
+            '    <item id="%s" href="%s" media-type="application/xhtml+xml"/>',
+            chapter_id, chapter_file))
+        table.insert(spine_items, string.format('    <itemref idref="%s"/>', chapter_id))
 
-            local escaped_chapter_title = self:escapeXML(chapter.title)
-            table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
+        local esc_ch = self:escapeXML(chapter.title)
+        table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
       <navLabel><text>%s</text></navLabel>
       <content src="%s"/>
-    </navPoint>]], play_order, play_order, escaped_chapter_title, chapter_file))
-            table.insert(nav_entries, string.format(
-                '      <li><a href="%s">%s</a></li>', chapter_file, escaped_chapter_title))
-            if i == 1 then
-                first_chapter_file = chapter_file
-            end
-            play_order = play_order + 1
-        end
+    </navPoint>]], play_order, play_order, esc_ch, chapter_file))
+        table.insert(nav_entries, string.format(
+            '      <li><a href="%s">%s</a></li>', chapter_file, esc_ch))
+        if i == 1 then first_chapter_file = chapter_file end
+        play_order = play_order + 1
+    end
 
-        if first_chapter_file then
-            table.insert(nav_landmarks, string.format(
-                '      <li><a epub:type="bodymatter" href="%s">Begin Reading</a></li>',
-                first_chapter_file))
-        end
+    if first_chapter_file then
+        table.insert(nav_landmarks, string.format(
+            '      <li><a epub:type="bodymatter" href="%s">Begin Reading</a></li>',
+            first_chapter_file))
+    end
 
-        table.insert(manifest_items, '    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>')
-        table.insert(manifest_items, '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>')
-        table.insert(manifest_items, '    <item id="css-before" href="ReadiumCSS-before.css" media-type="text/css"/>')
-        table.insert(manifest_items, '    <item id="css-default" href="ReadiumCSS-default.css" media-type="text/css"/>')
-        table.insert(manifest_items, '    <item id="css-after" href="ReadiumCSS-after.css" media-type="text/css"/>')
+    table.insert(manifest_items, '    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>')
+    table.insert(manifest_items, '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>')
+    table.insert(manifest_items, '    <item id="css-before" href="ReadiumCSS-before.css" media-type="text/css"/>')
+    table.insert(manifest_items, '    <item id="css-default" href="ReadiumCSS-default.css" media-type="text/css"/>')
+    table.insert(manifest_items, '    <item id="css-after" href="ReadiumCSS-after.css" media-type="text/css"/>')
 
-        local modified_date = os.date("!%Y-%m-%dT%H:%M:%SZ")
+    return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks
+end
 
-        local cover_meta = has_cover and '    <meta name="cover" content="cover"/>\n' or ""
-        local cover_guide = has_cover and '\n  <guide>\n    <reference href="title.xhtml" title="Cover" type="cover"/>\n  </guide>' or ""
+function M:_buildOPF(fiction_id, book_id, escaped_title, escaped_author, cover_image,
+                     manifest_items, spine_items)
+    local has_cover    = cover_image and cover_image.data
+    local cover_meta   = has_cover and '    <meta name="cover" content="cover"/>\n' or ""
+    local cover_guide  = has_cover
+        and '\n  <guide>\n    <reference href="title.xhtml" title="Cover" type="cover"/>\n  </guide>'
+        or ""
+    local modified_date = os.date("!%Y-%m-%dT%H:%M:%SZ")
 
-        local content_opf = string.format([[<?xml version="1.0" encoding="UTF-8"?>
+    return string.format([[<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:title>%s</dc:title>
@@ -308,11 +286,12 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 %s
   </spine>%s
 </package>]],
-            escaped_title, escaped_author, book_id, fiction_id, modified_date, cover_meta,
-            table.concat(manifest_items, "\n"), table.concat(spine_items, "\n"), cover_guide)
-        epub:addFileFromMemory("content.opf", content_opf)
+        escaped_title, escaped_author, book_id, fiction_id, modified_date, cover_meta,
+        table.concat(manifest_items, "\n"), table.concat(spine_items, "\n"), cover_guide)
+end
 
-        local toc_ncx = string.format([[<?xml version="1.0" encoding="UTF-8"?>
+function M:_buildNCX(book_id, escaped_title, escaped_author, nav_points)
+    return string.format([[<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
@@ -327,9 +306,10 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 %s
   </navMap>
 </ncx>]], book_id, escaped_title, escaped_author, table.concat(nav_points, "\n"))
-        epub:addFileFromMemory("toc.ncx", toc_ncx)
+end
 
-        local nav_xhtml = string.format([[<?xml version="1.0" encoding="UTF-8"?>
+function M:_buildNav(escaped_title, nav_entries, nav_landmarks)
+    return string.format([[<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"
       xml:lang="en" lang="en">
@@ -353,7 +333,70 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
   </nav>
 </body>
 </html>]], escaped_title, table.concat(nav_entries, "\n"), table.concat(nav_landmarks, "\n"))
-        epub:addFileFromMemory("nav.xhtml", nav_xhtml)
+end
+
+function M:_addChapters(epub, chapters)
+    for i, chapter in ipairs(chapters) do
+        local esc_ch        = self:escapeXML(chapter.title)
+        local chapter_content = (chapter.content or ""):gsub("<br>", "<br/>")
+        local chapter_xhtml = string.format([[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>%s</title>
+  <link rel="stylesheet" type="text/css" href="ReadiumCSS-before.css"/>
+  <link rel="stylesheet" type="text/css" href="ReadiumCSS-default.css"/>
+  <link rel="stylesheet" type="text/css" href="ReadiumCSS-after.css"/>
+</head>
+<body>
+  <div class="chapter">
+    <h2>%s</h2>
+    %s
+  </div>
+</body>
+</html>]], esc_ch, esc_ch, chapter_content)
+        epub:addFileFromMemory(string.format("chapter_%03d.xhtml", i), chapter_xhtml)
+    end
+end
+
+function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, chapter_urls, cover_url)
+    self:ensureDownloadDir()
+
+    local safe_title = util.getSafeFilename(story_title)
+    local filename = string.format("%s/%s_%s.epub", self.download_dir, safe_title, fiction_id)
+
+    local ok, result = pcall(function()
+        local Archiver = require("ffi/archiver")
+        local epub = Archiver.Writer:new{}
+        if not epub:open(filename, "epub") then
+            error("Failed to create EPUB file")
+        end
+
+        local book_id        = "royalroad-" .. fiction_id
+        local escaped_title  = self:escapeXML(story_title)
+        local escaped_author = self:escapeXML(author)
+        local has_cover      = cover_image and cover_image.data
+
+        epub:addFileFromMemory("mimetype", "application/epub+zip")
+
+        local container_xml = [[<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>]]
+        epub:addFileFromMemory("META-INF/container.xml", container_xml)
+
+        local manifest_items, spine_items, nav_points, nav_entries, nav_landmarks =
+            self:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
+
+        epub:addFileFromMemory("content.opf",
+            self:_buildOPF(fiction_id, book_id, escaped_title, escaped_author,
+                           cover_image, manifest_items, spine_items))
+        epub:addFileFromMemory("toc.ncx",
+            self:_buildNCX(book_id, escaped_title, escaped_author, nav_points))
+        epub:addFileFromMemory("nav.xhtml",
+            self:_buildNav(escaped_title, nav_entries, nav_landmarks))
 
         epub:addFileFromMemory("ReadiumCSS-before.css", CSS_BEFORE)
         epub:addFileFromMemory("ReadiumCSS-default.css", CSS_DEFAULT)
@@ -405,30 +448,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 </html>]], escaped_title, escaped_title, escaped_author, fiction_id, fiction_id)
         epub:addFileFromMemory("title.xhtml", title_xhtml)
 
-        for i, chapter in ipairs(chapters) do
-            local escaped_chapter_title = self:escapeXML(chapter.title)
-            local chapter_content = (chapter.content or ""):gsub("<br>", "<br/>")
-
-            local chapter_xhtml = string.format([[<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-  <title>%s</title>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-before.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-default.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-after.css"/>
-</head>
-<body>
-  <div class="chapter">
-    <h2>%s</h2>
-    %s
-  </div>
-</body>
-</html>]], escaped_chapter_title, escaped_chapter_title, chapter_content)
-
-            local chapter_file = string.format("chapter_%03d.xhtml", i)
-            epub:addFileFromMemory(chapter_file, chapter_xhtml)
-        end
+        self:_addChapters(epub, chapters)
 
         epub:close()
         return true
