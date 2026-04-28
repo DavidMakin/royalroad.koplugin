@@ -28,6 +28,21 @@ local extractEpubCover = widgets.extractEpubCover
 
 local M = {}
 
+local HTTP_CONNECT_TIMEOUT = 10
+local HTTP_TOTAL_TIMEOUT   = 60
+local SCHEDULE_DELAY       = 0.1   -- delay before UI-triggered actions
+local YIELD_DELAY          = 0.01  -- yield to let UI repaint before blocking work
+local MAX_COVER_CACHE      = 50
+
+local function json_str(s)
+    return (s or "")
+        :gsub('\\', '\\\\')
+        :gsub('"',  '\\"')
+        :gsub('\n', '\\n')
+        :gsub('\r', '\\r')
+        :gsub('\t', '\\t')
+end
+
 function M:downloadStory()
     local function doDownload()
         local input = self.input_dialog:getInputText()
@@ -96,7 +111,7 @@ function M:processFiction(fiction_id)
                             text = _("Check for updates"),
                             callback = function()
                                 UIManager:close(already_dialog)
-                                UIManager:scheduleIn(0.1, function()
+                                UIManager:scheduleIn(SCHEDULE_DELAY, function()
                                     self:checkSingleStoryForUpdates(fiction_id)
                                 end)
                             end,
@@ -107,7 +122,7 @@ function M:processFiction(fiction_id)
                             text = _("Re-download"),
                             callback = function()
                                 UIManager:close(already_dialog)
-                                UIManager:scheduleIn(0.1, function()
+                                UIManager:scheduleIn(SCHEDULE_DELAY, function()
                                     self:deleteAndRedownload(fiction_id)
                                 end)
                             end,
@@ -213,7 +228,7 @@ function M:processFictionAll(fiction_id)
         logger.info("Royal Road: Bulk processing fiction ID:", fiction_id)
 
         if self.downloaded_stories[fiction_id] then
-            UIManager:scheduleIn(0.1, function()
+            UIManager:scheduleIn(SCHEDULE_DELAY, function()
                 self:checkSingleStoryForUpdates(fiction_id)
             end)
             return
@@ -266,7 +281,7 @@ function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls,
             timeout = 3,
         })
 
-        UIManager:scheduleIn(0.1, function()
+        UIManager:scheduleIn(SCHEDULE_DELAY, function()
             self:queueDownload(fiction_id, story_title, author, selected_urls, cover_image, cover_url, partial_of)
         end)
     end
@@ -378,7 +393,7 @@ function M:cachedExtractCover(fiction_id, epub_path)
     end
     local bb = extractEpubCover(epub_path)
     if bb then
-        local MAX_COVERS = 50
+        local MAX_COVERS = MAX_COVER_CACHE
         if #self._cover_bb_order >= MAX_COVERS then
             local oldest = table.remove(self._cover_bb_order, 1)
             local old_bb = self._cover_bb_cache[oldest]
@@ -434,7 +449,7 @@ function M:fetchPage(page_url)
             },
         }
 
-        socketutil:set_timeout(10, 60)
+        socketutil:set_timeout(HTTP_CONNECT_TIMEOUT, HTTP_TOTAL_TIMEOUT)
         local code, _, status = socket.skip(1, http.request(request))
         socketutil:reset_timeout()
 
@@ -442,7 +457,7 @@ function M:fetchPage(page_url)
             return table.concat(response_body)
         end
 
-        logger.warn("Royal Road: HTTP", code, status, "attempt", attempt + 1)
+        logger.warn("Royal Road: HTTP", code, status, "attempt", attempt + 1, "url", page_url)
         if attempt < #delays then
             socket.sleep(delays[attempt + 1])
         end
@@ -464,7 +479,7 @@ function M:fetchImage(image_url)
         },
     }
 
-    socketutil:set_timeout(10, 60)
+    socketutil:set_timeout(HTTP_CONNECT_TIMEOUT, HTTP_TOTAL_TIMEOUT)
     local code, headers, status = socket.skip(1, http.request(request))
     socketutil:reset_timeout()
 
@@ -814,7 +829,7 @@ function M:downloadNextChapter(state, i)
     end
     UIManager:setDirty(state.progress_dialog, "ui")
 
-    UIManager:scheduleIn(0.01, function()
+    UIManager:scheduleIn(YIELD_DELAY, function()
         local chapter_url = state.chapter_urls[i]
         local chapter_html = self:fetchPage(chapter_url)
 
@@ -903,7 +918,7 @@ function M:_retryFailedChapters(state)
         text    = T(_("Retrying %1 failed chapters..."), #state.failed_urls),
         timeout = 2,
     })
-    UIManager:scheduleIn(0.1, function()
+    UIManager:scheduleIn(SCHEDULE_DELAY, function()
         self:_doRetryFailedChapters(state, 1)
     end)
 end
@@ -922,7 +937,7 @@ function M:_doRetryFailedChapters(state, i)
     end
     local url = state.failed_urls[i]
     local chapter_idx = state.failed_indices[i]
-    UIManager:scheduleIn(0.01, function()
+    UIManager:scheduleIn(YIELD_DELAY, function()
         local chapter_html = self:fetchPage(url)
         if chapter_html then
             local chapter_title = self:extractChapterTitle(chapter_html)
@@ -996,14 +1011,6 @@ function M:exportReadingList()
                 callback = function()
                     UIManager:close(export_dialog)
                     local DocSettings = require("docsettings")
-                    local function json_str(s)
-                        return (s or "")
-                            :gsub('\\', '\\\\')
-                            :gsub('"',  '\\"')
-                            :gsub('\n', '\\n')
-                            :gsub('\r', '\\r')
-                            :gsub('\t', '\\t')
-                    end
                     local entries = {}
                     for fiction_id, story in pairs(self.downloaded_stories) do
                         local progress = 0

@@ -10,6 +10,10 @@ local M = {}
 
 local _plugin_dir = debug.getinfo(1, "S").source:match("^@(.+)/[^/]+$") or "."
 
+local CSS_BEFORE  = util.readFromFile(_plugin_dir .. "/ReadiumCSS-before.css")  or ""
+local CSS_DEFAULT = util.readFromFile(_plugin_dir .. "/ReadiumCSS-default.css") or ""
+local CSS_AFTER   = util.readFromFile(_plugin_dir .. "/ReadiumCSS-after.css")   or ""
+
 function M:ensureDownloadDir()
     local ok, err = util.makePath(self.download_dir)
     if not ok and err then
@@ -56,6 +60,7 @@ function M:saveAsHTML(fiction_id, story_title, author, chapters)
         })
         logger.info("Royal Road: Saved", filename)
     else
+        logger.err("Royal Road: Failed to write HTML file:", filename)
         UIManager:show(InfoMessage:new{
             text = T(_("Failed to write file:\n%1"), filename),
         })
@@ -162,6 +167,9 @@ function M:extractChaptersFromEPUB(epub_path)
             local chapter_content = content:match('<div class="chapter">.-</h2>(.+)</div>%s*</body>')
             if not chapter_content then
                 chapter_content = content:match("<body>(.+)</body>")
+            end
+            if not chapter_content then
+                logger.warn("Royal Road: Could not extract content from chapter file:", filepath)
             end
 
             table.insert(chapters, {
@@ -347,12 +355,9 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 </html>]], escaped_title, table.concat(nav_entries, "\n"), table.concat(nav_landmarks, "\n"))
         epub:addFileFromMemory("nav.xhtml", nav_xhtml)
 
-local css_before = util.readFromFile(_plugin_dir .. "/ReadiumCSS-before.css") or ""
-local css_default = util.readFromFile(_plugin_dir .. "/ReadiumCSS-default.css") or ""
-local css_after = util.readFromFile(_plugin_dir .. "/ReadiumCSS-after.css") or ""
-        epub:addFileFromMemory("ReadiumCSS-before.css", css_before)
-        epub:addFileFromMemory("ReadiumCSS-default.css", css_default)
-        epub:addFileFromMemory("ReadiumCSS-after.css", css_after)
+        epub:addFileFromMemory("ReadiumCSS-before.css", CSS_BEFORE)
+        epub:addFileFromMemory("ReadiumCSS-default.css", CSS_DEFAULT)
+        epub:addFileFromMemory("ReadiumCSS-after.css", CSS_AFTER)
 
         if has_cover then
             local img_w, img_h = self:getImageDimensions(cover_image.data, cover_image.mime_type)

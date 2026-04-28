@@ -103,7 +103,7 @@ function RoyalRoadDownloader:loadSettings()
     local dirty = false
     for fiction_id, story in pairs(self.downloaded_stories) do
         if story.epub_path and not lfs.attributes(story.epub_path, "mode") then
-            logger.info("Royal Road: EPUB missing, removing from tracking:", story.title)
+            logger.err("Royal Road: EPUB missing, removing from tracking:", story.title, story.epub_path)
             self.downloaded_stories[fiction_id] = nil
             dirty = true
         end

@@ -19,6 +19,8 @@ local _               = require("gettext")
 
 local M = {}
 
+local SCHEDULE_DELAY = 0.1
+
 function M:checkForUpdates()
     if self:countDownloadedStories() == 0 then
         UIManager:show(InfoMessage:new{
@@ -32,7 +34,7 @@ function M:checkForUpdates()
         timeout = 2,
     })
 
-    UIManager:scheduleIn(0.1, function()
+    UIManager:scheduleIn(SCHEDULE_DELAY, function()
         local ok, err = pcall(function()
             self:performUpdateCheck()
         end)
@@ -162,7 +164,7 @@ function M:updateAllStories(stories_with_updates)
             timeout = 2,
         })
 
-        UIManager:scheduleIn(0.1, function()
+        UIManager:scheduleIn(SCHEDULE_DELAY, function()
             self:updateStory(story.fiction_id, story.current_urls, function()
                 updateNext(index + 1)
             end)
@@ -230,6 +232,7 @@ function M:updateStory(fiction_id, current_urls, on_complete)
 
     local existing_chapters, err = self:extractChaptersFromEPUB(epub_path)
     if not existing_chapters then
+        logger.err("Royal Road: Failed to extract chapters from EPUB:", epub_path, err)
         UIManager:show(InfoMessage:new{
             text = T(_("Failed to read existing EPUB:\n%1"), err or "Unknown error"),
         })
@@ -332,7 +335,7 @@ function M:downloadNextNewChapter(state, i)
 
     local full_url = state.new_urls[i]
 
-    UIManager:scheduleIn(0.1, function()
+    UIManager:scheduleIn(SCHEDULE_DELAY, function()
         local chapter_html = self:fetchPage(full_url)
         if chapter_html then
             local title = self:extractChapterTitle(chapter_html)

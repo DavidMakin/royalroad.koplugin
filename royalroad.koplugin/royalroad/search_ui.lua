@@ -10,6 +10,8 @@ local _           = require("gettext")
 
 local M = {}
 
+local MAX_SEARCH_RESULTS = 20
+
 function M:searchStories()
     local search_dialog
     search_dialog = InputDialog:new{
@@ -134,7 +136,7 @@ function M:parseSearchResults(html)
                 })
             end
         end
-        if #results >= 20 then break end
+            if #results >= MAX_SEARCH_RESULTS then break end
     end
 
     return results
