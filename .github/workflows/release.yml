@@ -1,0 +1,54 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+
+      - name: Update version in _meta.lua
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i -E "s/(version\s*=\s*)\"[^\"]+\"/\1\"${VERSION}\"/" royalroad.koplugin/_meta.lua
+          echo "Set version to ${VERSION}"
+          grep version royalroad.koplugin/_meta.lua
+
+      - name: Commit and force-move tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add royalroad.koplugin/_meta.lua
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: set version to ${GITHUB_REF_NAME}"
+            git tag -f "${GITHUB_REF_NAME}"
+            git push origin "${GITHUB_REF_NAME}" --force
+          fi
+
+      - name: Create zip archive
+        run: |
+          mkdir staging
+          cp -r royalroad.koplugin staging/royalroad.koplugin
+          cd staging
+          zip -r ../royalroad.koplugin.zip royalroad.koplugin \
+            -x '**/.git/*' \
+            -x '**/.github/*' \
+            -x '**/*.zip'
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        with:
+          files: royalroad.koplugin.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
