@@ -2,7 +2,7 @@ local _ = require("gettext")
 return {
     name = "royalroad",
     fullname = _("Royal Road Downloader"),
-    version = "0.7.0",
+    version = "0.8.0",
     description = _([[Downloads stories from Royal Road as EPUB files.]]),
-    min_koreader_version = "2022.03",
+    min_koreader_version = "0.8.0",
 }
