@@ -143,6 +143,10 @@ Before writing any new helper function, utility, or feature, check whether KORea
 - If KOReader provides it, use it. Do not duplicate it.
 - If unsure whether something exists, check the [KOReader API docs](https://koreader.rocks/doc/) or grep the KOReader source before writing new code.
 
+## Shell Scripts (MANDATORY)
+
+All shell scripts (`.sh` files and inline shell in CI workflows) must pass `shellcheck` with no errors or warnings, including SC2250 (always use `${VAR}` braces around variable references). Run `shellcheck <file>` before committing any shell script.
+
 ## Known Limitations
 
 - No official APIs - relies on HTML scraping

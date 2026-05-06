@@ -24,7 +24,7 @@ KOReader plugin for downloading web fiction from [Royal Road](https://www.royalr
 
 3. The plugin will appear in your tools menu
 
-### Quick Install (macOS)
+### Quick Install (macOS and Linux)
 
 ```bash
 ./install-plugin.sh
