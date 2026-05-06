@@ -31,6 +31,7 @@ jobs:
           git add royalroad.koplugin/_meta.lua
           if ! git diff --staged --quiet; then
             git commit -m "chore: set version to ${GITHUB_REF_NAME}"
+            git push origin HEAD:main
             git tag -f "${GITHUB_REF_NAME}"
             git push origin "${GITHUB_REF_NAME}" --force
           fi
