@@ -235,7 +235,7 @@ function M:showStoryOptions(fiction_id)
                         local existing_chapters, ch_err = self:extractChaptersFromEPUB(story.epub_path)
                         if existing_chapters then
                             local cover_image = { data = image_data, mime_type = mime_type, extension = extension }
-                            self:saveAsEPUB(fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url)
+                            self:saveAsEPUB(fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url, story.epub_path)
                         end
                         UIManager:show(InfoMessage:new{ text = _("Cover updated!"), timeout = 2 })
                     else

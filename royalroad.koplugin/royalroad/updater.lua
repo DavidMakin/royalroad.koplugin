@@ -419,7 +419,8 @@ function M:rebuildEPUBWithNewChapters(state)
         all_chapters,
         cover_image,
         state.all_urls,
-        cover_url
+        cover_url,
+        state.story.epub_path
     )
     self._cover_cache = nil
 

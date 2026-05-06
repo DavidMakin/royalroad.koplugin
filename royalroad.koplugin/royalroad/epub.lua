@@ -359,11 +359,16 @@ function M:_addChapters(epub, chapters)
     end
 end
 
-function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, chapter_urls, cover_url)
+function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, chapter_urls, cover_url, output_path)
     self:ensureDownloadDir()
 
-    local safe_title = util.getSafeFilename(story_title)
-    local filename = string.format("%s/%s_%s.epub", self.download_dir, safe_title, fiction_id)
+    local filename
+    if output_path then
+        filename = output_path
+    else
+        local safe_title = util.getSafeFilename(story_title)
+        filename = string.format("%s/%s_%s.epub", self.download_dir, safe_title, fiction_id)
+    end
 
     local ok, result = pcall(function()
         local Archiver = require("ffi/archiver")
