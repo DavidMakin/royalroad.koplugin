@@ -4,5 +4,5 @@ return {
     fullname = _("Royal Road Downloader"),
     version = "0.9.0",
     description = _([[Downloads stories from Royal Road as EPUB files.]]),
-    min_koreader_version = "0.8.1",
+    min_koreader_version = "0.9.0",
 }
