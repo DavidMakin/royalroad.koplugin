@@ -1,13 +1,14 @@
 local Blitbuffer      = require("ffi/blitbuffer")
 local Button          = require("ui/widget/button")
-local ButtonDialog    = require("ui/widget/buttondialog")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
 local DocSettings     = require("docsettings")
 local Font            = require("ui/font")
 local FrameContainer  = require("ui/widget/container/framecontainer")
+local Geom            = require("ui/geometry")
 local InfoMessage     = require("ui/widget/infomessage")
 local ProgressWidget  = require("ui/widget/progresswidget")
+local RenderText      = require("ui/rendertext")
 local TextWidget      = require("ui/widget/textwidget")
 local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
@@ -20,6 +21,23 @@ local _               = require("gettext")
 local M = {}
 
 local SCHEDULE_DELAY = 0.1
+
+local function fitText(text, face, max_width)
+    local w = RenderText:sizeUtf8Text(0, max_width, face, text, true, false).x
+    if w <= max_width then return text end
+    local ellipsis = "…"
+    local lo, hi = 1, #text
+    while lo < hi do
+        local mid = math.floor((lo + hi + 1) / 2)
+        local candidate = text:sub(1, mid) .. ellipsis
+        if RenderText:sizeUtf8Text(0, max_width, face, candidate, true, false).x <= max_width then
+            lo = mid
+        else
+            hi = mid - 1
+        end
+    end
+    return text:sub(1, lo) .. ellipsis
+end
 
 function M:checkForUpdates()
     if self:countDownloadedStories() == 0 then
@@ -99,82 +117,255 @@ function M:performUpdateCheck()
 end
 
 function M:showUpdateMenu(stories_with_updates)
+    local count = #stories_with_updates
 
-    local buttons = {}
-    for idx, story in ipairs(stories_with_updates) do
-        table.insert(buttons, {
-            {
-                text = T(_("%1 (+%2 chapters)"), story.title, story.new_chapters),
-                callback = function()
-                    UIManager:close(self.update_dialog)
-                    local ok, err = pcall(function()
-                        self:updateStory(story.fiction_id, story.current_urls)
-                    end)
-                    if not ok then
-                        logger.err("Royal Road: Update failed:", err)
-                        UIManager:show(InfoMessage:new{
-                            text = T(_("Update failed:\n%1"), tostring(err)),
-                        })
-                    end
-                end,
+    if count == 1 then
+        local story = stories_with_updates[1]
+        local ButtonDialog = require("ui/widget/buttondialog")
+        self.update_dialog = ButtonDialog:new{
+            title = T(_("%1 has %2 new chapters"), story.title, story.new_chapters),
+            buttons = {
+                {{
+                    text = _("Update"),
+                    callback = function()
+                        UIManager:close(self.update_dialog)
+                        local ok, err = pcall(function()
+                            self:updateStory(story.fiction_id, story.current_urls)
+                        end)
+                        if not ok then
+                            logger.err("Royal Road: Update failed:", err)
+                            UIManager:show(InfoMessage:new{
+                                text = T(_("Update failed:\n%1"), tostring(err)),
+                            })
+                        end
+                    end,
+                }},
+                {{
+                    text = _("Cancel"),
+                    callback = function() UIManager:close(self.update_dialog) end,
+                }},
             },
-        })
+        }
+        UIManager:show(self.update_dialog)
+        return
     end
 
-    if #stories_with_updates > 1 then
-        table.insert(buttons, {
-            {
-                text = T(_("Update All (%1 stories)"), #stories_with_updates),
+    local total_new = 0
+    for _, s in ipairs(stories_with_updates) do
+        total_new = total_new + s.new_chapters
+    end
+
+    local ButtonDialog = require("ui/widget/buttondialog")
+    self.update_dialog = ButtonDialog:new{
+        title = T(_("%1 stories have updates (%2 new chapters total)"), count, total_new),
+        buttons = {
+            {{
+                text = T(_("Update All (%1 stories)"), count),
                 callback = function()
                     UIManager:close(self.update_dialog)
                     self:updateAllStories(stories_with_updates)
                 end,
-            },
-        })
-    end
-
-    table.insert(buttons, {
-        {
-            text = _("Cancel"),
-            callback = function()
-                UIManager:close(self.update_dialog)
-            end,
+            }},
+            {{
+                text = _("Choose…"),
+                callback = function()
+                    UIManager:close(self.update_dialog)
+                    self:showUpdatePicker(stories_with_updates)
+                end,
+            }},
+            {{
+                text = _("Cancel"),
+                callback = function() UIManager:close(self.update_dialog) end,
+            }},
         },
-    })
-
-    self.update_dialog = ButtonDialog:new{
-        title = T(_("%1 stories have updates"), #stories_with_updates),
-        buttons = buttons,
     }
     UIManager:show(self.update_dialog)
 end
 
-function M:updateAllStories(stories_with_updates)
-    local function updateNext(index)
-        if index > #stories_with_updates then
+function M:showUpdatePicker(stories_with_updates)
+    local Menu      = require("ui/widget/menu")
+
+    local selected = {}
+    local item_table = {}
+    for _i, story in ipairs(stories_with_updates) do
+        selected[_i] = false
+        table.insert(item_table, {
+            text  = "○  " .. T(_("%1  (+%2)"), story.title, story.new_chapters),
+            title = T(_("%1  (+%2)"), story.title, story.new_chapters),
+            story = story,
+            idx   = _i,
+        })
+    end
+
+    local picker
+
+    local function selectedCount()
+        local n = 0
+        for _, v in pairs(selected) do if v then n = n + 1 end end
+        return n
+    end
+
+    local function updateTitle()
+        local n = selectedCount()
+        local title = n == 0 and _("Tap to select stories") or T(_("Update selected (%1)"), n)
+        if picker and picker.title_bar then
+            picker.title_bar:setTitle(title)
+        end
+    end
+
+    local function runUpdate()
+        local n = selectedCount()
+        if n == 0 then
             UIManager:show(InfoMessage:new{
-                text = T(_("Updated %1 stories!"), #stories_with_updates),
+                text    = _("No stories selected."),
+                timeout = 2,
+            })
+            return
+        end
+        UIManager:close(picker)
+        local chosen = {}
+        for _i, story in ipairs(stories_with_updates) do
+            if selected[_i] then table.insert(chosen, story) end
+        end
+        if n == 1 then
+            local ok, err = pcall(function()
+                self:updateStory(chosen[1].fiction_id, chosen[1].current_urls)
+            end)
+            if not ok then
+                logger.err("Royal Road: Update failed:", err)
+                UIManager:show(InfoMessage:new{
+                    text = T(_("Update failed:\n%1"), tostring(err)),
+                })
+            end
+        else
+            self:updateAllStories(chosen)
+        end
+    end
+
+    local function refreshItems()
+        for _, item in ipairs(item_table) do
+            item.text = (selected[item.idx] and "●  " or "○  ") .. item.title
+        end
+        picker:updateItems()
+        updateTitle()
+    end
+
+    picker = Menu:new{
+        title              = _("Tap to select stories"),
+        item_table         = item_table,
+        items_per_page     = (G_reader_settings:readSetting("items_per_page") or 14) - 1,
+        covers_fullscreen  = true,
+        is_borderless      = true,
+        is_popout          = false,
+        title_bar_fm_style = true,
+        title_bar_left_icon = "check",
+        onLeftButtonTap    = runUpdate,
+        onMenuSelect       = function(_, item)
+            selected[item.idx] = not selected[item.idx]
+            refreshItems()
+        end,
+        close_callback     = function() UIManager:close(picker) end,
+    }
+
+    UIManager:show(picker)
+end
+
+function M:updateAllStories(stories_with_updates)
+    local total = #stories_with_updates
+    local cancelled = false
+
+    local padding     = Device.screen:scaleBySize(10)
+    local frame_width = math.floor(Device.screen:getWidth() * 0.8)
+    local text_width  = frame_width - padding * 2
+    local label_face  = Font:getFace("smallinfofont")
+
+    local story_label = TextWidget:new{
+        text  = "",
+        face  = label_face,
+        width = text_width,
+    }
+    local chapter_text = TextWidget:new{
+        text  = "",
+        face  = label_face,
+        width = text_width,
+    }
+    local progress_bar = ProgressWidget:new{
+        width      = text_width,
+        height     = Device.screen:scaleBySize(10),
+        percentage = 0,
+    }
+    local cancel_button = Button:new{
+        text     = _("Cancel"),
+        callback = function() cancelled = true end,
+    }
+    local cancel_centered = CenterContainer:new{
+        dimen = Geom:new{ w = text_width, h = cancel_button:getSize().h },
+        cancel_button,
+    }
+    local progress_frame = FrameContainer:new{
+        padding    = padding,
+        background = Blitbuffer.COLOR_WHITE,
+        VerticalGroup:new{
+            align = "left",
+            story_label,
+            chapter_text,
+            progress_bar,
+            cancel_centered,
+        },
+    }
+    local progress_dialog = CenterContainer:new{
+        dimen = Device.screen:getSize(),
+        progress_frame,
+    }
+    UIManager:show(progress_dialog)
+    self:keepScreenAwake()
+
+    local batch = {
+        cancelled       = function() return cancelled end,
+        story_label     = story_label,
+        chapter_text    = chapter_text,
+        progress_bar    = progress_bar,
+        progress_dialog = progress_dialog,
+        text_width      = text_width,
+        label_face      = label_face,
+    }
+
+    local function updateNext(index)
+        if cancelled then
+            UIManager:close(progress_dialog)
+            self:allowScreenSleep()
+            UIManager:show(InfoMessage:new{
+                text    = _("Update cancelled."),
+                timeout = 3,
+            })
+            return
+        end
+        if index > total then
+            UIManager:close(progress_dialog)
+            self:allowScreenSleep()
+            UIManager:show(InfoMessage:new{
+                text = T(_("Updated %1 stories!"), total),
             })
             return
         end
 
         local story = stories_with_updates[index]
-        UIManager:show(InfoMessage:new{
-            text = T(_("Updating %1 (%2/%3)..."), story.title, index, #stories_with_updates),
-            timeout = 2,
-        })
-
+        local prefix = T(_("Story %1/%2: "), index, total)
+        local title_space = text_width - RenderText:sizeUtf8Text(0, text_width, label_face, prefix, true, false).x
+        local label_text = prefix .. fitText(story.title, label_face, title_space)
+        story_label:setText(label_text)
+        UIManager:setDirty(progress_dialog, "ui")
         UIManager:scheduleIn(SCHEDULE_DELAY, function()
             self:updateStory(story.fiction_id, story.current_urls, function()
                 updateNext(index + 1)
-            end)
+            end, batch)
         end)
     end
 
     updateNext(1)
 end
 
-function M:updateStory(fiction_id, current_urls, on_complete)
+function M:updateStory(fiction_id, current_urls, on_complete, batch)
     local story = self.downloaded_stories[fiction_id]
     if not story then
         logger.warn("Royal Road: Story not found in downloaded list:", fiction_id)
@@ -242,94 +433,122 @@ function M:updateStory(fiction_id, current_urls, on_complete)
 
     logger.info("Royal Road: Extracted", #existing_chapters, "existing chapters")
 
-    self:downloadNewChapters(fiction_id, story, existing_chapters, new_urls, current_urls, old_position, on_complete)
+    self:downloadNewChapters(fiction_id, story, existing_chapters, new_urls, current_urls, old_position, on_complete, batch)
 end
 
-function M:downloadNewChapters(fiction_id, story, existing_chapters, new_urls, all_urls, old_position, on_complete)
+function M:downloadNewChapters(fiction_id, story, existing_chapters, new_urls, all_urls, old_position, on_complete, batch)
     local new_chapters = {}
     local total_new = #new_urls
     local start_time = socket.gettime()
 
-    local progress_text = TextWidget:new{
-        text = T(_("Downloading new chapter 1/%1"), total_new),
-        face = Font:getFace("smallinfofont"),
-    }
-    local progress_bar = ProgressWidget:new{
-        width = Device.screen:scaleBySize(200),
-        height = Device.screen:scaleBySize(10),
-        percentage = 0,
-    }
+    local progress_text, progress_bar, progress_dialog
+
+    if batch then
+        progress_text    = batch.chapter_text
+        progress_bar     = batch.progress_bar
+        progress_dialog  = batch.progress_dialog
+    else
+        local padding    = Device.screen:scaleBySize(10)
+        local text_width = math.floor(Device.screen:getWidth() * 0.8) - padding * 2
+        local face       = Font:getFace("smallinfofont")
+        local prefix     = T(_("Updating: "))
+        local title_space = text_width - RenderText:sizeUtf8Text(0, text_width, face, prefix, true, false).x
+
+        progress_text = TextWidget:new{
+            text  = T(_("Downloading new chapter 1/%1"), total_new),
+            face  = face,
+            width = text_width,
+        }
+        progress_bar = ProgressWidget:new{
+            width      = text_width,
+            height     = Device.screen:scaleBySize(10),
+            percentage = 0,
+        }
+
+        local cancel_button = Button:new{
+            text     = _("Cancel"),
+            callback = function() state.cancelled = true end,
+        }
+        local cancel_centered = CenterContainer:new{
+            dimen = Geom:new{ w = text_width, h = cancel_button:getSize().h },
+            cancel_button,
+        }
+
+        local progress_frame = FrameContainer:new{
+            padding    = padding,
+            background = Blitbuffer.COLOR_WHITE,
+            VerticalGroup:new{
+                align = "left",
+                TextWidget:new{
+                    text  = prefix .. fitText(story.title, face, title_space),
+                    face  = face,
+                    width = text_width,
+                },
+                progress_text,
+                progress_bar,
+                cancel_centered,
+            },
+        }
+
+        progress_dialog = CenterContainer:new{
+            dimen = Device.screen:getSize(),
+            progress_frame,
+        }
+
+        UIManager:show(progress_dialog)
+        self:keepScreenAwake()
+    end
 
     local state = {
-        new_urls = new_urls,
-        new_chapters = new_chapters,
-        total_new = total_new,
-        start_time = start_time,
-        progress_text = progress_text,
-        progress_bar = progress_bar,
-        fiction_id = fiction_id,
-        story = story,
+        new_urls          = new_urls,
+        new_chapters      = new_chapters,
+        total_new         = total_new,
+        start_time        = start_time,
+        progress_text     = progress_text,
+        progress_bar      = progress_bar,
+        fiction_id        = fiction_id,
+        story             = story,
         existing_chapters = existing_chapters,
-        all_urls = all_urls,
-        old_position = old_position,
-        on_complete = on_complete,
-        cancelled = false,
+        all_urls          = all_urls,
+        old_position      = old_position,
+        on_complete       = on_complete,
+        cancelled         = false,
+        batch             = batch,
+        progress_dialog   = progress_dialog,
     }
 
-    local cancel_button = Button:new{
-        text = _("Cancel"),
-        callback = function()
-            state.cancelled = true
-        end,
-    }
-
-    local progress_frame = FrameContainer:new{
-        padding = Device.screen:scaleBySize(10),
-        background = Blitbuffer.COLOR_WHITE,
-        VerticalGroup:new{
-            align = "center",
-            TextWidget:new{
-                text = T(_("Updating: %1"), story.title),
-                face = Font:getFace("smallinfofont"),
-            },
-            progress_text,
-            progress_bar,
-            cancel_button,
-        },
-    }
-
-    local progress_dialog = CenterContainer:new{
-        dimen = Device.screen:getSize(),
-        progress_frame,
-    }
-
-    UIManager:show(progress_dialog)
-    state.progress_dialog = progress_dialog
-
-    self:keepScreenAwake()
     self:downloadNextNewChapter(state, 1)
 end
 
 function M:downloadNextNewChapter(state, i)
-    if state.cancelled then
-        UIManager:close(state.progress_dialog)
-        self:allowScreenSleep()
-        UIManager:show(InfoMessage:new{
-            text = _("Update cancelled."),
-            timeout = 3,
-        })
+    local is_cancelled = state.cancelled or (state.batch and state.batch.cancelled())
+    if is_cancelled then
+        if not state.batch then
+            UIManager:close(state.progress_dialog)
+            self:allowScreenSleep()
+            UIManager:show(InfoMessage:new{
+                text    = _("Update cancelled."),
+                timeout = 3,
+            })
+        end
         if state.on_complete then state.on_complete() end
         return
     end
 
     if i > state.total_new then
-        self:allowScreenSleep()
-        UIManager:close(state.progress_dialog)
+        if not state.batch then
+            self:allowScreenSleep()
+            UIManager:close(state.progress_dialog)
+        end
         self:rebuildEPUBWithNewChapters(state)
         return
     end
 
-    state.progress_text:setText(T(_("Downloading new chapter %1/%2"), i, state.total_new))
+    local chapter_str = T(_("Downloading new chapter %1/%2"), i, state.total_new)
+    if state.batch then
+        chapter_str = fitText(chapter_str, state.batch.label_face, state.batch.text_width)
+    end
+    state.progress_text:setText(chapter_str)
     state.progress_bar:setPercentage(i / state.total_new)
     UIManager:setDirty(state.progress_dialog, "ui")
 
@@ -420,7 +639,8 @@ function M:rebuildEPUBWithNewChapters(state)
         cover_image,
         state.all_urls,
         cover_url,
-        state.story.epub_path
+        state.story.epub_path,
+        state.on_complete ~= nil
     )
     self._cover_cache = nil
 
@@ -451,13 +671,13 @@ function M:rebuildEPUBWithNewChapters(state)
         end)
     end
 
-    UIManager:show(InfoMessage:new{
-        text = T(_("Updated %1!\n\n+%2 new chapters\nTotal: %3 chapters\n\nReading position preserved."),
-            state.story.title, #state.new_chapters, #all_chapters),
-    })
-
     if state.on_complete then
         state.on_complete()
+    else
+        UIManager:show(InfoMessage:new{
+            text = T(_("Updated %1!\n\n+%2 new chapters\nTotal: %3 chapters\n\nReading position preserved."),
+                state.story.title, #state.new_chapters, #all_chapters),
+        })
     end
 end
 

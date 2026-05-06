@@ -359,7 +359,7 @@ function M:_addChapters(epub, chapters)
     end
 end
 
-function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, chapter_urls, cover_url, output_path)
+function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, chapter_urls, cover_url, output_path, silent)
     self:ensureDownloadDir()
 
     local filename
@@ -474,10 +474,12 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         self:saveSettings()
         logger.info("Royal Road: Saved metadata for story", fiction_id, "with", #(chapter_urls or {}), "chapters")
 
-        UIManager:show(InfoMessage:new{
-            text = T(_("Saved EPUB:\n%1\n\n%2 chapters"), filename, #chapters),
-            timeout = 10,
-        })
+        if not silent then
+            UIManager:show(InfoMessage:new{
+                text = T(_("Saved EPUB:\n%1\n\n%2 chapters"), filename, #chapters),
+                timeout = 10,
+            })
+        end
         logger.info("Royal Road: Saved EPUB", filename)
     else
         local error_msg = tostring(result)

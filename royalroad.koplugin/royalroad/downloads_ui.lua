@@ -1,10 +1,10 @@
 local Blitbuffer      = require("ffi/blitbuffer")
+local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
 local DocSettings     = require("docsettings")
 local Geom            = require("ui/geometry")
 local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan  = require("ui/widget/horizontalspan")
-local InfoMessage     = require("ui/widget/infomessage")
 local InputDialog     = require("ui/widget/inputdialog")
 local Menu            = require("ui/widget/menu")
 local Size            = require("ui/size")
@@ -28,14 +28,6 @@ local M = {}
 
 function M:manageDownloads()
     self._last_read_cache = nil
-    if self:countDownloadedStories() == 0 then
-        UIManager:show(InfoMessage:new{
-            text    = _("No downloaded stories."),
-            timeout = 3,
-        })
-        return
-    end
-
     local filter_text = self._manage_filter or ""
 
     local item_table = {}
@@ -134,6 +126,8 @@ function M:manageDownloads()
         search_dialog:onShowKeyboard()
     end
 
+    local ButtonDialog = require("ui/widget/buttondialog")
+
     local StoryMenuBase = Menu:extend{
         _items_pending = {},
     }
@@ -172,27 +166,47 @@ function M:manageDownloads()
     end
 
     function StoryMenuBase:onStoryHold(story)
-        local ButtonDialog = require("ui/widget/buttondialog")
-        local quick_dialog
-        quick_dialog = ButtonDialog:new{
-            title = story.title,
+        local TitleBar        = require("ui/widget/titlebar")
+        local ButtonTable     = require("ui/widget/buttontable")
+        local FrameContainer  = require("ui/widget/container/framecontainer")
+        local VerticalGroup   = require("ui/widget/verticalgroup")
+
+        local dialog
+        local width = math.floor(Device.screen:getWidth() * 0.8)
+        local function close() UIManager:close(dialog) end
+
+        local title_bar = TitleBar:new{
+            width          = width,
+            title          = story.title,
+            close_callback = close,
+        }
+        local button_table = ButtonTable:new{
+            width   = width,
             buttons = {
                 {{ text = _("Open"), callback = function()
-                    UIManager:close(quick_dialog)
-                    downloader:showStoryOptions(story.fiction_id)
+                    close() downloader:showStoryOptions(story.fiction_id)
                 end }},
                 {{ text = _("Check for updates"), callback = function()
-                    UIManager:close(quick_dialog)
-                    downloader:checkSingleStoryForUpdates(story.fiction_id)
+                    close() downloader:checkSingleStoryForUpdates(story.fiction_id)
                 end }},
                 {{ text = _("Delete"), callback = function()
-                    UIManager:close(quick_dialog)
-                    downloader:deleteStoryCompletely(story.fiction_id)
+                    close() downloader:deleteStoryCompletely(story.fiction_id)
                 end }},
-                {{ text = _("Cancel"), callback = function() UIManager:close(quick_dialog) end }},
             },
         }
-        UIManager:show(quick_dialog)
+        dialog = CenterContainer:new{
+            dimen = Device.screen:getSize(),
+            FrameContainer:new{
+                background = Blitbuffer.COLOR_WHITE,
+                bordersize = Size.border.window,
+                padding    = 0,
+                VerticalGroup:new{
+                    title_bar,
+                    button_table,
+                },
+            },
+        }
+        UIManager:show(dialog)
     end
 
     function StoryMenuBase:onCloseWidget()
@@ -217,9 +231,11 @@ function M:manageDownloads()
                 bot_h = math.max(self.page_return_arrow:getSize().h, self.page_info_text:getSize().h)
                         + Size.padding.button
             end
-            local avail_w      = self.inner_dimen and self.inner_dimen.w or screen_w
+            local full_w       = self.inner_dimen and self.inner_dimen.w or screen_w
             local avail_h      = (self.inner_dimen and self.inner_dimen.h or Device.screen:getHeight()) - top_h - bot_h
-            local cell_w       = math.floor((avail_w - GRID_CELL_GAP * (cols + 1)) / cols)
+            local side_pad     = Size.padding.large
+            local inner_w      = full_w - 2 * side_pad
+            local cell_w       = math.floor((inner_w - GRID_CELL_GAP * (cols - 1)) / cols)
             local cell_h       = math.floor((avail_h - GRID_ROW_GAP  * (rows + 1)) / rows)
             local cover_w_max  = math.max(0, cell_w - GRID_CELL_GAP * 2)
             local cover_h_max  = math.max(0, cell_h - title_h - 4 - GRID_CELL_GAP * 2)
@@ -229,14 +245,15 @@ function M:manageDownloads()
             self._cell_h    = cell_h
             self._cover_w   = cover_w
             self._cover_h   = cover_h
+            self._side_pad  = side_pad
             self.perpage    = rows * cols
             self.page_num   = math.ceil(#self.item_table / self.perpage)
             if self.page_num > 0 and self.page > self.page_num then
                 self.page = self.page_num
             end
-            self.item_width  = avail_w
+            self.item_width  = full_w
             self.item_height = cell_h
-            self.item_dimen  = Geom:new{ x = 0, y = 0, w = avail_w, h = cell_h }
+            self.item_dimen  = Geom:new{ x = 0, y = 0, w = full_w, h = cell_h }
         end
 
         function StoryMosaicMenu:updateItems(select_number)
@@ -250,12 +267,14 @@ function M:manageDownloads()
             local cell_h  = self._cell_h
             local cover_w = self._cover_w
             local cover_h = self._cover_h
+            local side_pad = self._side_pad or Size.padding.large
 
             local idx_offset = (self.page - 1) * self.perpage
 
             for row_i = 1, rows do
                 local row = HorizontalGroup:new{ align = "top" }
                 local row_layout = {}
+                table.insert(row, HorizontalSpan:new{ width = side_pad })
                 for col = 1, cols do
                     local entry = self.item_table[idx_offset + (row_i - 1) * cols + col]
                     if entry then
@@ -278,6 +297,7 @@ function M:manageDownloads()
                         end
                     end
                 end
+                table.insert(row, HorizontalSpan:new{ width = side_pad })
                 table.insert(self.item_group, row)
                 table.insert(self.layout, row_layout)
                 table.insert(self.item_group, VerticalSpan:new{ width = GRID_ROW_GAP })
@@ -300,12 +320,11 @@ function M:manageDownloads()
             covers_fullscreen       = true,
             is_borderless           = true,
             is_popout               = false,
-            title                   = T(_("Downloads (%1)"), #item_table) .. filter_suffix,
+            title                   = T(_("Royal Road Downloader (%1)"), #item_table) .. filter_suffix,
             item_table              = item_table,
             title_bar_fm_style      = true,
             title_bar_left_icon     = "appbar.menu",
             onLeftButtonTap         = function()
-                local ButtonDialog = require("ui/widget/buttondialog")
                 local function anchor() return menu.title_bar.left_button.image.dimen end
 
                 local function open_sort()
@@ -318,7 +337,7 @@ function M:manageDownloads()
                         shrink_unneeded_width = true,
                         anchor = anchor,
                         buttons = {
-                        {{ text = lbl("title",    _("Title")),        align = "left", callback = function() downloader.manage_sort_mode = "title"    closeAndRefresh(d, menu) end }},
+                            {{ text = lbl("title",    _("Title")),        align = "left", callback = function() downloader.manage_sort_mode = "title"    closeAndRefresh(d, menu) end }},
                             {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() downloader.manage_sort_mode = "date"     closeAndRefresh(d, menu) end }},
                             {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() downloader.manage_sort_mode = "updated"  closeAndRefresh(d, menu) end }},
                             {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() downloader.manage_sort_mode = "lastread" closeAndRefresh(d, menu) end }},
@@ -363,22 +382,25 @@ function M:manageDownloads()
                     shrink_unneeded_width = true,
                     anchor = anchor,
                     buttons = {
-                        {{ text = _("Switch to list view"), align = "left", callback = function()
-                            downloader.manage_view_mode = "list"
-                            closeAndRefresh(view_dialog, menu)
-                        end }},
-                        {{ text = _("Sort by…"),  align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
-                        {{ text = _("Grid size…"), align = "left", callback = function() UIManager:close(view_dialog) open_grid() end }},
+                        {{ text = "\u{2261} " .. _("Switch to list view"),     align = "left", callback = function() downloader.manage_view_mode = "list" closeAndRefresh(view_dialog, menu) end }},
+                        {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
+                        {{ text = "\u{229E} " .. _("Grid size…"),              align = "left", callback = function() UIManager:close(view_dialog) open_grid() end }},
+                        {},
+                        {{ text = "\u{2193} " .. _("Download story"),          align = "left", callback = function() UIManager:close(view_dialog) downloader:downloadStory() end }},
+                        {{ text = "\u{2315} " .. _("Search Royal Road"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:searchStories() end }},
+                        {{ text = "\u{21BB} " .. _("Check for updates"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:checkForUpdates() end }},
+                        {{ text = "\u{2B07} " .. _("Bulk import"),             align = "left", callback = function() UIManager:close(view_dialog) downloader:bulkImport() end }},
+                        {{ text = "\u{2B06} " .. _("Export reading list"),     align = "left", callback = function() UIManager:close(view_dialog) downloader:exportReadingList() end }},
+                        {{ text = "\u{2399} " .. _("Open downloads folder"),   align = "left", callback = function() UIManager:close(view_dialog) downloader:openDownloadsFolder() end }},
+                        {{ text = "\u{2699} " .. _("Settings"),                align = "left", callback = function() UIManager:close(view_dialog) downloader:showSettings() end }},
+                        {},
+                        {{ text = "\u{2139} " .. _("About"),                   align = "left", callback = function() UIManager:close(view_dialog) downloader:showAbout() end }},
                     },
                 }
                 UIManager:show(view_dialog)
             end,
             title_bar_right_icon    = "appbar.search",
             onRightButtonTap        = function(this) openSearch(this) end,
-            onReturn                = function(this)
-                UIManager:close(this)
-                UIManager:scheduleIn(0.3, function() downloader:showPluginMenu() end)
-            end,
         }
         downloader.manage_menu = menu
         UIManager:show(menu)
@@ -458,7 +480,7 @@ function M:manageDownloads()
     end
 
     local filter_suffix = (filter_text ~= "") and T(_(" [filter: %1]"), filter_text) or ""
-    local menu_title    = T(_("Downloads (%1)"), #item_table) .. filter_suffix
+    local menu_title    = T(_("Royal Road Downloader (%1)"), #item_table) .. filter_suffix
 
     local menu
     menu = StoryListMenu:new{
@@ -470,7 +492,6 @@ function M:manageDownloads()
         title_bar_fm_style      = true,
         title_bar_left_icon     = "appbar.menu",
         onLeftButtonTap         = function()
-            local ButtonDialog = require("ui/widget/buttondialog")
             local function anchor() return menu.title_bar.left_button.image.dimen end
 
             local function open_sort()
@@ -498,21 +519,24 @@ function M:manageDownloads()
                 shrink_unneeded_width = true,
                 anchor = anchor,
                 buttons = {
-                    {{ text = _("Switch to mosaic view"), align = "left", callback = function()
-                        downloader.manage_view_mode = "mosaic"
-                        closeAndRefresh(view_dialog, menu)
-                    end }},
-                    {{ text = _("Sort by…"), align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
+                    {{ text = "\u{25A6} " .. _("Switch to mosaic view"),   align = "left", callback = function() downloader.manage_view_mode = "mosaic" closeAndRefresh(view_dialog, menu) end }},
+                    {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
+                    {},
+                    {{ text = "\u{2193} " .. _("Download story"),          align = "left", callback = function() UIManager:close(view_dialog) downloader:downloadStory() end }},
+                    {{ text = "\u{2315} " .. _("Search Royal Road"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:searchStories() end }},
+                    {{ text = "\u{21BB} " .. _("Check for updates"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:checkForUpdates() end }},
+                    {{ text = "\u{2B07} " .. _("Bulk import"),             align = "left", callback = function() UIManager:close(view_dialog) downloader:bulkImport() end }},
+                    {{ text = "\u{2B06} " .. _("Export reading list"),     align = "left", callback = function() UIManager:close(view_dialog) downloader:exportReadingList() end }},
+                    {{ text = "\u{2399} " .. _("Open downloads folder"),   align = "left", callback = function() UIManager:close(view_dialog) downloader:openDownloadsFolder() end }},
+                    {{ text = "\u{2699} " .. _("Settings"),                align = "left", callback = function() UIManager:close(view_dialog) downloader:showSettings() end }},
+                    {},
+                    {{ text = "\u{2139} " .. _("About"),                   align = "left", callback = function() UIManager:close(view_dialog) downloader:showAbout() end }},
                 },
             }
             UIManager:show(view_dialog)
         end,
         title_bar_right_icon    = "appbar.search",
         onRightButtonTap        = function(this) openSearch(this) end,
-        onReturn                = function(this)
-            UIManager:close(this)
-            UIManager:scheduleIn(0.3, function() downloader:showPluginMenu() end)
-        end,
     }
     downloader.manage_menu = menu
     UIManager:show(menu)

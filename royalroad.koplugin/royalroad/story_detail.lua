@@ -12,6 +12,7 @@ local InputDialog     = require("ui/widget/inputdialog")
 local Size            = require("ui/size")
 local TextBoxWidget   = require("ui/widget/textboxwidget")
 local TextWidget      = require("ui/widget/textwidget")
+local TitleBar        = require("ui/widget/titlebar")
 local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
 local VerticalSpan    = require("ui/widget/verticalspan")
@@ -89,18 +90,11 @@ function M:showStoryOptions(fiction_id)
 
     local info_w = dialog_w - cover_w - Size.padding.large * 3
     local meta_group = VerticalGroup:new{ align = "left" }
-    table.insert(meta_group, TextBoxWidget:new{
-        text  = story.title or "",
-        face  = Font:getFace("smalltfont"),
-        width = info_w,
-        bold  = true,
-    })
     if story.author and story.author ~= "" then
-        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
         table.insert(meta_group, TextBoxWidget:new{
-            text  = story.author,
-            face  = Font:getFace("smallffont"),
-            width = info_w,
+            text    = story.author,
+            face    = Font:getFace("smallffont"),
+            width   = info_w,
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })
     end
@@ -173,7 +167,7 @@ function M:showStoryOptions(fiction_id)
 
     if epub_exists then
         table.insert(buttons, {{
-            text = _("Open book"),
+            text = _("\u{25B7} Open book"),
             callback = function()
                 UIManager:close(self.story_detail_dialog)
                 UIManager:setDirty(nil, "ui")
@@ -186,7 +180,7 @@ function M:showStoryOptions(fiction_id)
             end,
         }})
         table.insert(buttons, {{
-            text = _("Check for updates"),
+            text = _("\u{21BB} Check for updates"),
             callback = function()
                 UIManager:close(self.story_detail_dialog)
                 UIManager:setDirty(nil, "ui")
@@ -197,7 +191,7 @@ function M:showStoryOptions(fiction_id)
 
     else
         table.insert(buttons, {{
-            text = _("EPUB missing - Redownload"),
+            text = _("\u{2193} EPUB missing - Redownload"),
             callback = function()
                 UIManager:close(self.story_detail_dialog)
                 UIManager:setDirty(nil, "ui")
@@ -208,7 +202,7 @@ function M:showStoryOptions(fiction_id)
 
     if story.partial_of then
         table.insert(buttons, {{
-            text = T(_("Resume download (%1/%2 ch)"), #(story.chapter_urls or {}), story.partial_of),
+            text = T(_("\u{25B6} Resume download (%1/%2 ch)"), #(story.chapter_urls or {}), story.partial_of),
             callback = function()
                 UIManager:close(self.story_detail_dialog)
                 UIManager:setDirty(nil, "ui")
@@ -220,7 +214,7 @@ function M:showStoryOptions(fiction_id)
 
     if story.cover_url and story.cover_url ~= "" then
         table.insert(buttons, {{
-            text = _("Refresh cover"),
+            text = _("\u{21BA} Refresh cover"),
             callback = function()
                 UIManager:close(self.story_detail_dialog)
                 UIManager:show(InfoMessage:new{ text = _("Fetching cover..."), timeout = 2 })
@@ -246,7 +240,7 @@ function M:showStoryOptions(fiction_id)
         }})
     end
     table.insert(buttons, {{
-        text = _("Remove from tracking"),
+            text = _("\u{2296} Remove from tracking"),
         callback = function()
             UIManager:close(self.story_detail_dialog)
             UIManager:setDirty(nil, "ui")
@@ -255,29 +249,22 @@ function M:showStoryOptions(fiction_id)
     }})
     if epub_exists then
         table.insert(buttons, {{
-            text = _("Delete EPUB and tracking"),
+            text = _("\u{2297} Delete EPUB and tracking"),
             callback = function()
                 UIManager:close(self.story_detail_dialog)
                 UIManager:setDirty(nil, "ui")
                 self:deleteStoryCompletely(fiction_id)
             end,
         }})
-        table.insert(buttons, {{
-            text = _("Delete and redownload"),
-            callback = function()
-                UIManager:close(self.story_detail_dialog)
-                UIManager:setDirty(nil, "ui")
-                self:deleteAndRedownload(fiction_id)
-            end,
-        }})
-    end
     table.insert(buttons, {{
-        text = _("Close"),
+            text = _("\u{2B07} Delete and redownload"),
         callback = function()
             UIManager:close(self.story_detail_dialog)
             UIManager:setDirty(nil, "ui")
+            self:deleteAndRedownload(fiction_id)
         end,
     }})
+    end
 
     local btn_table = ButtonTable:new{
         width    = dialog_w - Size.padding.large * 2,
@@ -290,16 +277,32 @@ function M:showStoryOptions(fiction_id)
     table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
     table.insert(main_vgroup, btn_table)
 
-    local content = FrameContainer:new{
-        padding    = Size.padding.large,
-        bordersize = Size.border.window,
-        background = Blitbuffer.COLOR_WHITE,
-        main_vgroup,
+    local title_bar = TitleBar:new{
+        width          = dialog_w,
+        title          = story.title,
+        with_bottom_line = true,
+        close_callback = function()
+            UIManager:close(self.story_detail_dialog)
+            UIManager:setDirty(nil, "ui")
+        end,
     }
 
     self.story_detail_dialog = CenterContainer:new{
         dimen = Device.screen:getSize(),
-        content,
+        FrameContainer:new{
+            padding    = 0,
+            bordersize = Size.border.window,
+            background = Blitbuffer.COLOR_WHITE,
+            VerticalGroup:new{
+                title_bar,
+                FrameContainer:new{
+                    padding    = Size.padding.large,
+                    bordersize = 0,
+                    background = Blitbuffer.COLOR_WHITE,
+                    main_vgroup,
+                },
+            },
+        },
     }
     UIManager:show(self.story_detail_dialog)
 end

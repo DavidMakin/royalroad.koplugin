@@ -5,9 +5,11 @@ local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
 local Font            = require("ui/font")
 local FrameContainer  = require("ui/widget/container/framecontainer")
+local Geom            = require("ui/geometry")
 local InfoMessage     = require("ui/widget/infomessage")
 local InputDialog     = require("ui/widget/inputdialog")
 local ProgressWidget  = require("ui/widget/progresswidget")
+local RenderText      = require("ui/rendertext")
 local Size            = require("ui/size")
 local TextWidget      = require("ui/widget/textwidget")
 local UIManager       = require("ui/uimanager")
@@ -30,9 +32,26 @@ local M = {}
 
 local HTTP_CONNECT_TIMEOUT = 10
 local HTTP_TOTAL_TIMEOUT   = 60
-local SCHEDULE_DELAY       = 0.1   -- delay before UI-triggered actions
-local YIELD_DELAY          = 0.01  -- yield to let UI repaint before blocking work
+local SCHEDULE_DELAY       = 0.1
+local YIELD_DELAY          = 0.01
 local MAX_COVER_CACHE      = 50
+
+local function fitText(text, face, max_width)
+    local w = RenderText:sizeUtf8Text(0, max_width, face, text, true, false).x
+    if w <= max_width then return text end
+    local ellipsis = "…"
+    local lo, hi = 1, #text
+    while lo < hi do
+        local mid = math.floor((lo + hi + 1) / 2)
+        local candidate = text:sub(1, mid) .. ellipsis
+        if RenderText:sizeUtf8Text(0, max_width, face, candidate, true, false).x <= max_width then
+            lo = mid
+        else
+            hi = mid - 1
+        end
+    end
+    return text:sub(1, lo) .. ellipsis
+end
 
 local function json_str(s)
     return (s or "")
@@ -68,17 +87,6 @@ function M:downloadStory()
             end,
         },
     }
-    if Device:hasClipboard() then
-        table.insert(btn_row, {
-            text = _("Paste"),
-            callback = function()
-                local content = Device.input.getClipboardContent()
-                if content and content ~= "" then
-                    self.input_dialog:setInputText(content)
-                end
-            end,
-        })
-    end
     table.insert(btn_row, {
         text = _("Download"),
         is_enter_default = true,
@@ -630,31 +638,35 @@ function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover
 
     self:keepScreenAwake()
 
-    local screen_width = Device.screen:getWidth()
-    local dialog_width = math.floor(screen_width * 0.8)
+    local padding     = Size.padding.large
+    local text_width  = math.floor(Device.screen:getWidth() * 0.8) - padding * 2
+    local title_face  = Font:getFace("smalltfont")
+    local body_face   = Font:getFace("smallffont")
 
     local queue_size = self._download_queue and #self._download_queue or 0
     local title_text = queue_size > 0
         and T(_("Downloading... (%1 more queued)"), queue_size)
         or _("Downloading...")
     local title_widget = TextWidget:new{
-        text = title_text,
-        face = Font:getFace("smalltfont"),
+        text = fitText(title_text, title_face, text_width),
+        face = title_face,
         bold = true,
     }
 
     local progress_text = TextWidget:new{
-        text = T(_("Chapter 0/%1"), total_chapters),
-        face = Font:getFace("smallffont"),
+        text  = T(_("Chapter 0/%1"), total_chapters),
+        face  = body_face,
+        width = text_width,
     }
 
     local eta_text = TextWidget:new{
-        text = _("Calculating ETA..."),
-        face = Font:getFace("smallffont"),
+        text  = _("Calculating ETA..."),
+        face  = body_face,
+        width = text_width,
     }
 
     local progress_bar = ProgressWidget:new{
-        width = dialog_width - Size.padding.large * 2,
+        width = text_width,
         height = Size.item.height_default / 3,
         percentage = 0,
         margin_h = 0,
@@ -687,14 +699,18 @@ function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover
             state.cancelled = true
         end,
     }
+    local cancel_centered = CenterContainer:new{
+        dimen = Geom:new{ w = text_width, h = cancel_button:getSize().h },
+        cancel_button,
+    }
 
     local progress_group = VerticalGroup:new{
-        align = "center",
+        align = "left",
         title_widget,
         progress_text,
         progress_bar,
         eta_text,
-        cancel_button,
+        cancel_centered,
     }
 
     local progress_frame = FrameContainer:new{

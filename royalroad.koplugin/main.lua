@@ -46,7 +46,7 @@ function RoyalRoadDownloader:onDispatcherRegisterActions()
 end
 
 function RoyalRoadDownloader:onShowRoyalRoadMenu()
-    self:showPluginMenu()
+    self:manageDownloads()
 end
 
 function RoyalRoadDownloader:onRoyalRoadCheckForUpdates()

@@ -86,7 +86,7 @@ function StoryListItem:init()
 
     table.insert(info_group, TextWidget:new{
         text      = story.title or "",
-        face      = Font:getFace("smalltfont"),
+        face      = Font:getFace("smalltfont", 16),
         max_width = text_width,
         bold      = true,
     })
@@ -229,7 +229,7 @@ function StoryCoverCell:init()
         bordersize = 0,
         background = Blitbuffer.COLOR_WHITE,
         CenterContainer:new{
-            dimen = Geom:new{ w = self.cover_width, h = self.cover_height + 4 + title_height },
+            dimen = Geom:new{ w = self.cell_width - 2 * GRID_CELL_GAP, h = self.cover_height + 4 + title_height },
             VerticalGroup:new{
                 align = "center",
                 cover_widget,

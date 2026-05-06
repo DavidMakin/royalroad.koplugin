@@ -63,13 +63,6 @@ function M:addToMainMenu(menu_items)
                 end,
             },
             {
-                text = _("Batch actions"),
-                keep_menu_open = true,
-                callback = function()
-                    self:showBatchActions()
-                end,
-            },
-            {
                 text = _("Bulk import"),
                 keep_menu_open = true,
                 callback = function()
@@ -119,7 +112,6 @@ function M:addToMainMenu(menu_items)
                                             self.use_epub = true
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{
@@ -128,7 +120,6 @@ function M:addToMainMenu(menu_items)
                                             self.use_epub = false
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
@@ -163,7 +154,6 @@ function M:addToMainMenu(menu_items)
                                             self.manage_view_mode = "list"
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{
@@ -172,7 +162,6 @@ function M:addToMainMenu(menu_items)
                                             self.manage_view_mode = "mosaic"
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
@@ -198,7 +187,6 @@ function M:addToMainMenu(menu_items)
                                             self.manage_sort_mode = "title"
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{
@@ -207,7 +195,6 @@ function M:addToMainMenu(menu_items)
                                             self.manage_sort_mode = "date"
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{
@@ -216,7 +203,6 @@ function M:addToMainMenu(menu_items)
                                             self.manage_sort_mode = "chapters"
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{
@@ -225,7 +211,6 @@ function M:addToMainMenu(menu_items)
                                             self.manage_sort_mode = "lastread"
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{
@@ -234,7 +219,6 @@ function M:addToMainMenu(menu_items)
                                             self.manage_sort_mode = "updated"
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
@@ -260,7 +244,6 @@ function M:addToMainMenu(menu_items)
                                             self.auto_check_updates = true
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{
@@ -269,7 +252,6 @@ function M:addToMainMenu(menu_items)
                                             self.auto_check_updates = false
                                             self:saveSettings()
                                             UIManager:close(dialog)
-                                            if self._plugin_menu then self._plugin_menu:updateItems() end
                                         end,
                                     }},
                                     {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
@@ -298,7 +280,6 @@ function M:addToMainMenu(menu_items)
                                             self:saveSettings()
                                         end
                                         UIManager:close(dialog)
-                                        if self._plugin_menu then self._plugin_menu:updateItems() end
                                     end},
                                 }},
                             }
@@ -314,36 +295,24 @@ function M:addToMainMenu(menu_items)
         text = _("Royal Road Downloader"),
         keep_menu_open = true,
         callback = function()
-            self:showPluginMenu()
+            self:manageDownloads()
         end,
     }
 end
 
-function M:showPluginMenu()
+function M:showSettings()
     if not self._royalroad_items then
         self:addToMainMenu({})
     end
-    local downloader = self
-    local plugin_menu = Menu:new{
-        title           = _("Royal Road Downloader"),
-        item_table      = self._royalroad_items,
+    local settings_items = self._royalroad_items[#self._royalroad_items].sub_item_table
+    local settings_menu = Menu:new{
+        title             = _("Settings"),
+        item_table        = settings_items,
         covers_fullscreen = true,
-        is_borderless   = true,
-        is_popout       = false,
+        is_borderless     = true,
+        is_popout         = false,
     }
-    function plugin_menu:updatePageInfo(select_number)
-        Menu.updatePageInfo(self, select_number)
-        if self.onReturn then
-            self.page_return_arrow:show()
-            self.page_return_arrow:enable()
-        end
-    end
-    function plugin_menu:onReturn()
-        UIManager:close(self)
-        UIManager:scheduleIn(0.3, function() downloader:showPluginMenu() end)
-    end
-    self._plugin_menu = plugin_menu
-    UIManager:show(plugin_menu)
+    UIManager:show(settings_menu)
 end
 
 function M:setRateLimit()
@@ -395,6 +364,18 @@ function M:chooseDownloadFolder()
         end,
     }
     UIManager:show(path_chooser)
+end
+
+function M:showAbout()
+    local meta = require("royalroad/meta")
+    UIManager:show(InfoMessage:new{
+        text = T(_(
+            "Royal Road Downloader\n\n" ..
+            "Version: %1\n" ..
+            "Min KOReader: %2\n\n" ..
+            "%3"
+        ), meta.version, meta.min_koreader_version, meta.description),
+    })
 end
 
 function M:openDownloadsFolder()
