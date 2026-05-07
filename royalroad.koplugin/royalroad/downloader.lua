@@ -88,6 +88,71 @@ function M:downloadStory()
     self.input_dialog:onShowKeyboard()
 end
 
+function M:_fetchStoryData(fiction_id, opts)
+    local fiction_url = C.BASE_URL .. "/fiction/" .. fiction_id
+    local story_html = self:fetchPageCached(fiction_url)
+    if not story_html then
+        if opts.show_progress then
+            UIManager:show(InfoMessage:new{ text = _("Failed to fetch story page."), timeout = 5 })
+        end
+        return nil
+    end
+
+    local story_title  = self:extractTitle(story_html)
+    local author       = self:extractAuthor(story_html)
+    local chapter_urls = self:extractChapterURLs(story_html, fiction_id)
+    local cover_url    = self:extractCoverURL(story_html)
+    local description  = self:extractDescription(story_html)
+    if description and description ~= "" then
+        if not self._pending_descriptions then self._pending_descriptions = {} end
+        self._pending_descriptions[fiction_id] = description
+    end
+
+    if opts.fetch_metadata then
+        local rating           = self:extractRating(story_html)
+        local status           = self:extractStatus(story_html)
+        local word_count       = self:extractWordCount(story_html)
+        local last_chapter_date = self:extractLastChapterDate(story_html)
+        if rating or status or word_count or last_chapter_date then
+            if not self._pending_metadata then self._pending_metadata = {} end
+            self._pending_metadata[fiction_id] = {
+                rating = rating, status = status,
+                word_count = word_count, last_chapter_date = last_chapter_date,
+            }
+        end
+    end
+
+    if not story_title or #chapter_urls == 0 then
+        if opts.show_progress then
+            UIManager:show(InfoMessage:new{
+                text = T(_("Failed to parse story.\nTitle: %1\nChapters: %2"),
+                    story_title or "NONE", #chapter_urls),
+                timeout = 10,
+            })
+        end
+        return nil
+    end
+
+    local cover_image = nil
+    if cover_url then
+        if opts.show_progress then
+            UIManager:show(InfoMessage:new{ text = _("Downloading cover image..."), timeout = 1 })
+        end
+        local image_data, mime_type, extension = self:fetchImage(cover_url)
+        if image_data then
+            cover_image = { data = image_data, mime_type = mime_type, extension = extension }
+        end
+    end
+
+    return {
+        story_title   = story_title,
+        author        = author,
+        chapter_urls  = chapter_urls,
+        cover_url     = cover_url,
+        cover_image   = cover_image,
+    }
+end
+
 function M:processFiction(fiction_id)
     NetworkMgr:runWhenOnline(function()
         logger.info("Royal Road: Processing fiction ID:", fiction_id)
@@ -98,111 +163,44 @@ function M:processFiction(fiction_id)
             already_dialog = ButtonDialog:new{
                 title = T(_("%1\nalready downloaded."), story.title or fiction_id),
                 buttons = {
-                    {
-                        {
-                            text = _("Check for updates"),
-                            callback = function()
-                                UIManager:close(already_dialog)
-                                UIManager:scheduleIn(SCHEDULE_DELAY, function()
-                                    self:checkSingleStoryForUpdates(fiction_id)
-                                end)
-                            end,
-                        },
-                    },
-                    {
-                        {
-                            text = _("Re-download"),
-                            callback = function()
-                                UIManager:close(already_dialog)
-                                UIManager:scheduleIn(SCHEDULE_DELAY, function()
-                                    self:deleteAndRedownload(fiction_id)
-                                end)
-                            end,
-                        },
-                    },
-                    {
-                        {
-                            text = _("Cancel"),
-                            callback = function()
-                                UIManager:close(already_dialog)
-                            end,
-                        },
-                    },
+                    {{
+                        text = _("Check for updates"),
+                        callback = function()
+                            UIManager:close(already_dialog)
+                            UIManager:scheduleIn(SCHEDULE_DELAY, function()
+                                self:checkSingleStoryForUpdates(fiction_id)
+                            end)
+                        end,
+                    }},
+                    {{
+                        text = _("Re-download"),
+                        callback = function()
+                            UIManager:close(already_dialog)
+                            UIManager:scheduleIn(SCHEDULE_DELAY, function()
+                                self:deleteAndRedownload(fiction_id)
+                            end)
+                        end,
+                    }},
+                    {{
+                        text = _("Cancel"),
+                        callback = function() UIManager:close(already_dialog) end,
+                    }},
                 },
             }
             UIManager:show(already_dialog)
             return
         end
 
-        UIManager:show(InfoMessage:new{
-            text = T(_("Fetching story %1..."), fiction_id),
-            timeout = 2,
-        })
+        UIManager:show(InfoMessage:new{ text = T(_("Fetching story %1..."), fiction_id), timeout = 2 })
 
-        local fiction_url = C.BASE_URL .. "/fiction/" .. fiction_id
-        local story_html = self:fetchPageCached(fiction_url)
+        local data = self:_fetchStoryData(fiction_id, { show_progress = true, fetch_metadata = true })
+        if not data then return end
 
-        if not story_html then
-            UIManager:show(InfoMessage:new{
-                text = _("Failed to fetch story page."),
-                timeout = 5,
-            })
-            return
-        end
+        logger.info("Royal Road: Cover URL:", data.cover_url or "none found")
 
-        local story_title = self:extractTitle(story_html)
-        local author = self:extractAuthor(story_html)
-        local chapter_urls = self:extractChapterURLs(story_html, fiction_id)
-        local cover_url = self:extractCoverURL(story_html)
-        local description = self:extractDescription(story_html)
-        if description and description ~= "" then
-            if not self._pending_descriptions then self._pending_descriptions = {} end
-            self._pending_descriptions[fiction_id] = description
-        end
-
-        local rating = self:extractRating(story_html)
-        local status = self:extractStatus(story_html)
-        local word_count = self:extractWordCount(story_html)
-        local last_chapter_date = self:extractLastChapterDate(story_html)
-        if rating or status or word_count or last_chapter_date then
-            if not self._pending_metadata then self._pending_metadata = {} end
-            self._pending_metadata[fiction_id] = {
-                rating = rating,
-                status = status,
-                word_count = word_count,
-                last_chapter_date = last_chapter_date,
-            }
-        end
-
-        if not story_title or #chapter_urls == 0 then
-            UIManager:show(InfoMessage:new{
-                text = T(_("Failed to parse story.\nTitle: %1\nChapters: %2"),
-                    story_title or "NONE", #chapter_urls),
-                timeout = 10,
-            })
-            return
-        end
-
-        logger.info("Royal Road: Cover URL:", cover_url or "none found")
-
-        local cover_image = nil
-        if cover_url then
-            UIManager:show(InfoMessage:new{
-                text = _("Downloading cover image..."),
-                timeout = 1,
-            })
-            local image_data, mime_type, extension = self:fetchImage(cover_url)
-            if image_data then
-                cover_image = {
-                    data = image_data,
-                    mime_type = mime_type,
-                    extension = extension,
-                }
-            end
-        end
-
+        local chapter_urls  = data.chapter_urls
         local total_available = #chapter_urls
-        if self.debug_chapter_limit and #chapter_urls > self.debug_chapter_limit then
+        if self.debug_chapter_limit and total_available > self.debug_chapter_limit then
             local limited_urls = {}
             for i = 1, self.debug_chapter_limit do
                 table.insert(limited_urls, chapter_urls[i])
@@ -211,7 +209,7 @@ function M:processFiction(fiction_id)
             logger.info("Royal Road: DEBUG - Limited from", total_available, "to", #chapter_urls, "chapters")
         end
 
-        self:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, total_available)
+        self:showChapterRangeDialog(fiction_id, data.story_title, data.author, chapter_urls, data.cover_image, data.cover_url, total_available)
     end)
 end
 
@@ -226,36 +224,12 @@ function M:processFictionAll(fiction_id)
             return
         end
 
-        UIManager:show(InfoMessage:new{
-            text = T(_("Fetching story %1..."), fiction_id),
-            timeout = 2,
-        })
+        UIManager:show(InfoMessage:new{ text = T(_("Fetching story %1..."), fiction_id), timeout = 2 })
 
-        local fiction_url = C.BASE_URL .. "/fiction/" .. fiction_id
-        local story_html = self:fetchPageCached(fiction_url)
-        if not story_html then return end
+        local data = self:_fetchStoryData(fiction_id, {})
+        if not data then return end
 
-        local story_title = self:extractTitle(story_html)
-        local author = self:extractAuthor(story_html)
-        local chapter_urls = self:extractChapterURLs(story_html, fiction_id)
-        local cover_url = self:extractCoverURL(story_html)
-        local description = self:extractDescription(story_html)
-        if description and description ~= "" then
-            if not self._pending_descriptions then self._pending_descriptions = {} end
-            self._pending_descriptions[fiction_id] = description
-        end
-
-        if not story_title or #chapter_urls == 0 then return end
-
-        local cover_image = nil
-        if cover_url then
-            local image_data, mime_type, extension = self:fetchImage(cover_url)
-            if image_data then
-                cover_image = { data = image_data, mime_type = mime_type, extension = extension }
-            end
-        end
-
-        self:queueDownload(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, nil)
+        self:queueDownload(fiction_id, data.story_title, data.author, data.chapter_urls, data.cover_image, data.cover_url, nil)
     end)
 end
 
@@ -1013,7 +987,7 @@ function M:exportReadingList()
                     for fiction_id, story in pairs(self.downloaded_stories) do
                         local progress = 0
                         if story.epub_path then
-                            local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                            local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
                             if ok and ds and ds.data then
                                 progress = ds.data.percent_finished or 0
                             end
@@ -1055,7 +1029,7 @@ function M:exportReadingList()
                     for fiction_id, story in pairs(self.downloaded_stories) do
                         local progress = 0
                         if story.epub_path then
-                            local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                            local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
                             if ok and ds and ds.data then
                                 progress = ds.data.percent_finished or 0
                             end

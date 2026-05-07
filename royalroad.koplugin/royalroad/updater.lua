@@ -29,6 +29,38 @@ local C            = require("royalroad/constants")
 local fitText      = require("royalroad/widgets").fitText
 local SCHEDULE_DELAY = C.NETWORK.SCHEDULE_DELAY
 
+function M:_computeStoryUpdate(fiction_id, story)
+    local story_html = self:fetchPage(C.BASE_URL .. "/fiction/" .. fiction_id)
+    if not story_html then return nil, true end
+
+    local current_urls = self:extractChapterURLs(story_html, fiction_id)
+    local stored_count = #(story.chapter_urls or {})
+    local current_count = #current_urls
+
+    if current_count <= stored_count then return nil, false end
+
+    local known_set = {}
+    for _, u in ipairs(story.chapter_urls or {}) do known_set[u] = true end
+    for _, u in ipairs(story.queued_chapter_urls or {}) do known_set[u] = true end
+    local new_chapters = 0
+    for _, u in ipairs(current_urls) do
+        if not known_set[u] then new_chapters = new_chapters + 1 end
+    end
+
+    if new_chapters == 0 and current_count <= (story.partial_of or stored_count) then
+        return nil, false
+    end
+
+    return {
+        fiction_id    = fiction_id,
+        title         = story.title,
+        stored_count  = stored_count,
+        current_count = current_count,
+        new_chapters  = new_chapters > 0 and new_chapters or (current_count - stored_count),
+        current_urls  = current_urls,
+    }, false
+end
+
 function M:checkForUpdates()
     if self:countDownloadedStories() == 0 then
         UIManager:show(InfoMessage:new{
@@ -156,43 +188,20 @@ function M:performUpdateCheck()
 
             UIManager:scheduleIn(0, function()
                 if cancelled then return end
-                local story_url = C.BASE_URL .. "/fiction/" .. fiction_id
-                local story_html = self:fetchPage(story_url)
 
-                if story_html then
-                    local current_urls = self:extractChapterURLs(story_html, fiction_id)
-                    local stored_count = #(story.chapter_urls or {})
-                    local current_count = #current_urls
-
-                    logger.info("Royal Road: Story", fiction_id, "has", stored_count, "stored,", current_count, "current chapters")
-
-                    if current_count > stored_count then
-                        local known_set = {}
-                        for _, u in ipairs(story.chapter_urls or {}) do known_set[u] = true end
-                        for _, u in ipairs(story.queued_chapter_urls or {}) do known_set[u] = true end
-                        local new_chapters = 0
-                        for _, u in ipairs(current_urls) do
-                            if not known_set[u] then new_chapters = new_chapters + 1 end
-                        end
-                        if new_chapters > 0 or current_count > (story.partial_of or stored_count) then
-                            table.insert(stories_with_updates, {
-                                fiction_id    = fiction_id,
-                                title         = story.title,
-                                stored_count  = stored_count,
-                                current_count = current_count,
-                                new_chapters  = new_chapters > 0 and new_chapters or (current_count - stored_count),
-                                current_urls  = current_urls,
-                            })
-                        end
-                    end
-                else
+                local update, fetch_failed = self:_computeStoryUpdate(fiction_id, story)
+                if update then
+                    logger.info("Royal Road: Story", fiction_id, "has", update.new_chapters, "new chapters")
+                    table.insert(stories_with_updates, update)
+                elseif fetch_failed then
                     table.insert(errors, story.title)
                     logger.warn("Royal Road: Failed to fetch story page for", fiction_id)
                 end
 
                 UIManager:scheduleIn(self.rate_limit_delay + SCHEDULE_DELAY, function()
                     process_next(idx + 1)
-                end)            end)
+                end)
+            end)
         end
 
         process_next(1)

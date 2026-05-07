@@ -59,7 +59,7 @@ function M:manageDownloads()
     elseif sort_mode == "lastread" then
         local function last_read_time(story)
             if story.epub_path then
-                local ok, ds = pcall(DocSettings.open, DocSettings, story.epub_path)
+                local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
                 if ok and ds and ds.data then
                     return ds.data.last_read_time or (ds.data.last_xpointer and 1 or 0)
                 end

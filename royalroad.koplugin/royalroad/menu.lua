@@ -105,7 +105,27 @@ function M:showSettings()
             if item.text_func then item.text = item.text_func() end
         end
         if settings_menu then settings_menu:updateItems() end
-    end    self._settings_items = {
+    end
+
+    local function showChoice(title, options, get, set, mark_dirty)
+        local dialog
+        local buttons = {}
+        for _, opt in ipairs(options) do
+            local value, label = opt[1], opt[2]
+            table.insert(buttons, {{ text = (get() == value and "● " or "○ ") .. label, callback = function()
+                set(value)
+                self:saveSettings()
+                UIManager:close(dialog)
+                if mark_dirty then self._settings_view_dirty = true end
+                refresh()
+            end }})
+        end
+        table.insert(buttons, {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }})
+        dialog = ButtonDialog:new{ title = title, buttons = buttons }
+        UIManager:show(dialog)
+    end
+
+    self._settings_items = {
         {
             text_func = function()
                 local dir = self.download_dir
@@ -121,20 +141,10 @@ function M:showSettings()
             end,
             keep_menu_open = true,
             callback = function()
-                local dialog
-                dialog = ButtonDialog:new{
-                    title = _("Download format"),
-                    buttons = {
-                        {{ text = (self.use_epub and "● " or "○ ") .. _("EPUB"), callback = function()
-                            self.use_epub = true; self:saveSettings(); UIManager:close(dialog); refresh()
-                        end }},
-                        {{ text = (not self.use_epub and "● " or "○ ") .. _("HTML"), callback = function()
-                            self.use_epub = false; self:saveSettings(); UIManager:close(dialog); refresh()
-                        end }},
-                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                    },
-                }
-                UIManager:show(dialog)
+                showChoice(_("Download format"), {
+                    { true,  _("EPUB") },
+                    { false, _("HTML") },
+                }, function() return self.use_epub end, function(v) self.use_epub = v end)
             end,
         },
         {
@@ -149,20 +159,10 @@ function M:showSettings()
             end,
             keep_menu_open = true,
             callback = function()
-                local dialog
-                dialog = ButtonDialog:new{
-                    title = _("Manage view"),
-                    buttons = {
-                        {{ text = (self.manage_view_mode == "list" and "● " or "○ ") .. _("List"), callback = function()
-                            self.manage_view_mode = "list"; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
-                        end }},
-                        {{ text = (self.manage_view_mode == "mosaic" and "● " or "○ ") .. _("Cover mosaic"), callback = function()
-                            self.manage_view_mode = "mosaic"; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
-                        end }},
-                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                    },
-                }
-                UIManager:show(dialog)
+                showChoice(_("Manage view"), {
+                    { "list",   _("List") },
+                    { "mosaic", _("Cover mosaic") },
+                }, function() return self.manage_view_mode end, function(v) self.manage_view_mode = v end, true)
             end,
         },
         {
@@ -171,20 +171,10 @@ function M:showSettings()
             end,
             keep_menu_open = true,
             callback = function()
-                local dialog
-                dialog = ButtonDialog:new{
-                    title = _("Mosaic titles"),
-                    buttons = {
-                        {{ text = (not self.mosaic_hide_title and "● " or "○ ") .. _("Show"), callback = function()
-                            self.mosaic_hide_title = false; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
-                        end }},
-                        {{ text = (self.mosaic_hide_title and "● " or "○ ") .. _("Hide"), callback = function()
-                            self.mosaic_hide_title = true; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
-                        end }},
-                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                    },
-                }
-                UIManager:show(dialog)
+                showChoice(_("Mosaic titles"), {
+                    { false, _("Show") },
+                    { true,  _("Hide") },
+                }, function() return self.mosaic_hide_title end, function(v) self.mosaic_hide_title = v end, true)
             end,
         },
         {
@@ -194,29 +184,13 @@ function M:showSettings()
             end,
             keep_menu_open = true,
             callback = function()
-                local dialog
-                dialog = ButtonDialog:new{
-                    title = _("Sort by"),
-                    buttons = {
-                        {{ text = (self.manage_sort_mode == "title" and "● " or "○ ") .. _("Title"), callback = function()
-                            self.manage_sort_mode = "title"; self:saveSettings(); UIManager:close(dialog); refresh()
-                        end }},
-                        {{ text = (self.manage_sort_mode == "date" and "● " or "○ ") .. _("Date downloaded"), callback = function()
-                            self.manage_sort_mode = "date"; self:saveSettings(); UIManager:close(dialog); refresh()
-                        end }},
-                        {{ text = (self.manage_sort_mode == "chapters" and "● " or "○ ") .. _("Chapter count"), callback = function()
-                            self.manage_sort_mode = "chapters"; self:saveSettings(); UIManager:close(dialog); refresh()
-                        end }},
-                        {{ text = (self.manage_sort_mode == "lastread" and "● " or "○ ") .. _("Last read"), callback = function()
-                            self.manage_sort_mode = "lastread"; self:saveSettings(); UIManager:close(dialog); refresh()
-                        end }},
-                        {{ text = (self.manage_sort_mode == "updated" and "● " or "○ ") .. _("Last updated"), callback = function()
-                            self.manage_sort_mode = "updated"; self:saveSettings(); UIManager:close(dialog); refresh()
-                        end }},
-                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                    },
-                }
-                UIManager:show(dialog)
+                showChoice(_("Sort by"), {
+                    { "title",    _("Title") },
+                    { "date",     _("Date downloaded") },
+                    { "chapters", _("Chapter count") },
+                    { "lastread", _("Last read") },
+                    { "updated",  _("Last updated") },
+                }, function() return self.manage_sort_mode end, function(v) self.manage_sort_mode = v end)
             end,
         },
     }

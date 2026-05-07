@@ -12,6 +12,10 @@ local M = {}
 
 local C = require("royalroad/constants")
 
+local function trim(s)
+    return s:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 function M:searchStories()
     local search_dialog
     search_dialog = InputDialog:new{
@@ -88,15 +92,14 @@ function M:parseSearchResults(html)
             local title = block:match('<h2[^>]*>%s*(.-)%s*</h2>')
                 or block:match('class="[^"]*fiction%-title[^"]*"[^>]*>%s*(.-)%s*<')
             if title then
-                title = title:gsub("<[^>]+>", "")
+                title = trim(title:gsub("<[^>]+>", ""))
                 title = util.htmlEntitiesToUtf8(title)
-                title = title:gsub("^%s+", ""):gsub("%s+$", "")
             end
 
             local author = block:match('property="author"[^>]*>%s*(.-)%s*</')
                 or block:match('class="[^"]*author[^"]*"[^>]*>%s*(.-)%s*<')
             if author then
-                author = author:gsub("<[^>]+>", ""):gsub("^%s+", ""):gsub("%s+$", "")
+                author = trim(author:gsub("<[^>]+>", ""))
             end
 
             local chapters = block:match('<span[^>]*title="Chapters"[^>]*>%s*(%d+[^<]*)</span>')
@@ -113,7 +116,7 @@ function M:parseSearchResults(html)
 
             local tags = {}
             for tag_text in block:gmatch('<a[^>]+class="[^"]*tag[^"]*"[^>]*>(.-)</a>') do
-                local t = tag_text:gsub("<[^>]+>", ""):gsub("^%s+", ""):gsub("%s+$", "")
+                local t = trim(tag_text:gsub("<[^>]+>", ""))
                 if t ~= "" then
                     table.insert(tags, t)
                     if #tags >= 3 then break end

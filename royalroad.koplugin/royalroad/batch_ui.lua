@@ -4,12 +4,10 @@ local InfoMessage   = require("ui/widget/infomessage")
 local Menu          = require("ui/widget/menu")
 local UIManager     = require("ui/uimanager")
 local ffiUtil       = require("ffi/util")
-local T             = require("ffi/util").template
+local T             = ffiUtil.template
 local _             = require("gettext")
 
 local M = {}
-
-local C = require("royalroad/constants")
 
 function M:showBatchActions()
     if self:countDownloadedStories() == 0 then
@@ -159,21 +157,10 @@ function M:batchUpdate(selected)
 
         UIManager:scheduleIn(0, function()
             if story then
-                local story_html = self:fetchPage(C.BASE_URL .. "/fiction/" .. fiction_id)
-                if story_html then
-                    local current_urls = self:extractChapterURLs(story_html, fiction_id)
-                    local stored_count = #(story.chapter_urls or {})
-                    if #current_urls > stored_count then
-                        table.insert(stories_with_updates, {
-                            fiction_id    = fiction_id,
-                            title         = story.title,
-                            stored_count  = stored_count,
-                            current_count = #current_urls,
-                            new_chapters  = #current_urls - stored_count,
-                            current_urls  = current_urls,
-                        })
-                    end
-                else
+                local update, fetch_failed = self:_computeStoryUpdate(fiction_id, story)
+                if update then
+                    table.insert(stories_with_updates, update)
+                elseif fetch_failed then
                     table.insert(errors, story.title or fiction_id)
                 end
             end
