@@ -84,210 +84,8 @@ function M:addToMainMenu(menu_items)
             },
             {
                 text = _("Settings"),
-                sub_item_table = {
-                    {
-                        text_func = function()
-                            local dir = self.download_dir
-                            local short = dir:match("([^/]+/[^/]+)$") or dir
-                            return T(_("Download folder: .../%1"), short)
-                        end,
-                        keep_menu_open = true,
-                        callback = function()
-                            self:chooseDownloadFolder()
-                        end,
-                    },
-                    {
-                        text_func = function()
-                            return T(_("Download format: %1"), self.use_epub and _("EPUB") or _("HTML"))
-                        end,
-                        keep_menu_open = true,
-                        callback = function()
-                            local dialog
-                            dialog = ButtonDialog:new{
-                                title = _("Download format"),
-                                buttons = {
-                                    {{
-                                        text     = (self.use_epub and "● " or "○ ") .. _("EPUB"),
-                                        callback = function()
-                                            self.use_epub = true
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{
-                                        text     = (not self.use_epub and "● " or "○ ") .. _("HTML"),
-                                        callback = function()
-                                            self.use_epub = false
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                                },
-                            }
-                            UIManager:show(dialog)
-                        end,
-                    },
-                    {
-                        text_func = function()
-                            return T(_("Rate limit: %1s"), self.rate_limit_delay)
-                        end,
-                        keep_menu_open = true,
-                        callback = function()
-                            self:setRateLimit()
-                        end,
-                    },
-                    {
-                        text_func = function()
-                            local label = self.manage_view_mode == "mosaic" and _("Cover mosaic") or _("List")
-                            return T(_("Manage view: %1"), label)
-                        end,
-                        keep_menu_open = true,
-                        callback = function()
-                            local dialog
-                            dialog = ButtonDialog:new{
-                                title = _("Manage view"),
-                                buttons = {
-                                    {{
-                                        text     = (self.manage_view_mode == "list" and "● " or "○ ") .. _("List"),
-                                        callback = function()
-                                            self.manage_view_mode = "list"
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{
-                                        text     = (self.manage_view_mode == "mosaic" and "● " or "○ ") .. _("Cover mosaic"),
-                                        callback = function()
-                                            self.manage_view_mode = "mosaic"
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                                },
-                            }
-                            UIManager:show(dialog)
-                        end,
-                    },
-                    {
-                        text_func = function()
-                            local labels = { title = _("Title"), date = _("Date"), chapters = _("Chapters"), lastread = _("Last read"), updated = _("Last updated") }
-                            return T(_("Sort by: %1"), labels[self.manage_sort_mode] or _("Title"))
-                        end,
-                        keep_menu_open = true,
-                        callback = function()
-                            local dialog
-                            dialog = ButtonDialog:new{
-                                title = _("Sort by"),
-                                buttons = {
-                                    {{
-                                        text     = (self.manage_sort_mode == "title" and "● " or "○ ") .. _("Title"),
-                                        callback = function()
-                                            self.manage_sort_mode = "title"
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{
-                                        text     = (self.manage_sort_mode == "date" and "● " or "○ ") .. _("Date downloaded"),
-                                        callback = function()
-                                            self.manage_sort_mode = "date"
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{
-                                        text     = (self.manage_sort_mode == "chapters" and "● " or "○ ") .. _("Chapter count"),
-                                        callback = function()
-                                            self.manage_sort_mode = "chapters"
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{
-                                        text     = (self.manage_sort_mode == "lastread" and "● " or "○ ") .. _("Last read"),
-                                        callback = function()
-                                            self.manage_sort_mode = "lastread"
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{
-                                        text     = (self.manage_sort_mode == "updated" and "● " or "○ ") .. _("Last updated"),
-                                        callback = function()
-                                            self.manage_sort_mode = "updated"
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                                 },
-                            }
-                            UIManager:show(dialog)
-                        end,
-                    },
-                    {
-                        text_func = function()
-                            local state = self.auto_check_updates and _("On") or _("Off")
-                            return T(_("Auto-check updates: %1"), state)
-                        end,
-                        keep_menu_open = true,
-                        callback = function()
-                            local dialog
-                            dialog = ButtonDialog:new{
-                                title = _("Auto-check updates on open"),
-                                buttons = {
-                                    {{
-                                        text     = (self.auto_check_updates and "● " or "○ ") .. _("On"),
-                                        callback = function()
-                                            self.auto_check_updates = true
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{
-                                        text     = (not self.auto_check_updates and "● " or "○ ") .. _("Off"),
-                                        callback = function()
-                                            self.auto_check_updates = false
-                                            self:saveSettings()
-                                            UIManager:close(dialog)
-                                        end,
-                                    }},
-                                    {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
-                                },
-                            }
-                            UIManager:show(dialog)
-                        end,
-                    },
-                    {
-                        text_func = function()
-                            return T(_("Check interval: %1h"), self.auto_check_interval_hours)
-                        end,
-                        keep_menu_open = true,
-                        callback = function()
-                            local dialog
-                            dialog = InputDialog:new{
-                                title = _("Auto-check interval (hours)"),
-                                input = tostring(self.auto_check_interval_hours),
-                                input_type = "number",
-                                buttons = {{
-                                    { text = _("Cancel"), callback = function() UIManager:close(dialog) end },
-                                    { text = _("Save"), callback = function()
-                                        local v = tonumber(dialog:getInputText())
-                                        if v and v >= 1 then
-                                            self.auto_check_interval_hours = v
-                                            self:saveSettings()
-                                        end
-                                        UIManager:close(dialog)
-                                    end},
-                                }},
-                            }
-                            UIManager:show(dialog)
-                            dialog:onShowKeyboard()
-                        end,
-                    },
-                },
+                keep_menu_open = true,
+                callback = function() self:showSettings() end,
             },
         }
     self._royalroad_items = royalroad_items
@@ -301,18 +99,153 @@ function M:addToMainMenu(menu_items)
 end
 
 function M:showSettings()
-    if not self._royalroad_items then
-        self:addToMainMenu({})
-    end
-    local settings_items = self._royalroad_items[#self._royalroad_items].sub_item_table
-    local settings_menu = Menu:new{
+    local settings_menu
+    local function refresh()
+        for _, item in ipairs(self._settings_items) do
+            if item.text_func then item.text = item.text_func() end
+        end
+        if settings_menu then settings_menu:updateItems() end
+    end    self._settings_items = {
+        {
+            text_func = function()
+                local dir = self.download_dir
+                local short = dir:match("([^/]+/[^/]+)$") or dir
+                return T(_("Download folder: .../%1"), short)
+            end,
+            keep_menu_open = true,
+            callback = function() self:chooseDownloadFolder() end,
+        },
+        {
+            text_func = function()
+                return T(_("Download format: %1"), self.use_epub and _("EPUB") or _("HTML"))
+            end,
+            keep_menu_open = true,
+            callback = function()
+                local dialog
+                dialog = ButtonDialog:new{
+                    title = _("Download format"),
+                    buttons = {
+                        {{ text = (self.use_epub and "● " or "○ ") .. _("EPUB"), callback = function()
+                            self.use_epub = true; self:saveSettings(); UIManager:close(dialog); refresh()
+                        end }},
+                        {{ text = (not self.use_epub and "● " or "○ ") .. _("HTML"), callback = function()
+                            self.use_epub = false; self:saveSettings(); UIManager:close(dialog); refresh()
+                        end }},
+                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
+                    },
+                }
+                UIManager:show(dialog)
+            end,
+        },
+        {
+            text_func = function() return T(_("Rate limit: %1s"), self.rate_limit_delay) end,
+            keep_menu_open = true,
+            callback = function() self:setRateLimit() end,
+        },
+        {
+            text_func = function()
+                local label = self.manage_view_mode == "mosaic" and _("Cover mosaic") or _("List")
+                return T(_("Manage view: %1"), label)
+            end,
+            keep_menu_open = true,
+            callback = function()
+                local dialog
+                dialog = ButtonDialog:new{
+                    title = _("Manage view"),
+                    buttons = {
+                        {{ text = (self.manage_view_mode == "list" and "● " or "○ ") .. _("List"), callback = function()
+                            self.manage_view_mode = "list"; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
+                        end }},
+                        {{ text = (self.manage_view_mode == "mosaic" and "● " or "○ ") .. _("Cover mosaic"), callback = function()
+                            self.manage_view_mode = "mosaic"; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
+                        end }},
+                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
+                    },
+                }
+                UIManager:show(dialog)
+            end,
+        },
+        {
+            text_func = function()
+                return T(_("Mosaic titles: %1"), self.mosaic_hide_title and _("hidden") or _("shown"))
+            end,
+            keep_menu_open = true,
+            callback = function()
+                local dialog
+                dialog = ButtonDialog:new{
+                    title = _("Mosaic titles"),
+                    buttons = {
+                        {{ text = (not self.mosaic_hide_title and "● " or "○ ") .. _("Show"), callback = function()
+                            self.mosaic_hide_title = false; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
+                        end }},
+                        {{ text = (self.mosaic_hide_title and "● " or "○ ") .. _("Hide"), callback = function()
+                            self.mosaic_hide_title = true; self:saveSettings(); UIManager:close(dialog); self._settings_view_dirty = true; refresh()
+                        end }},
+                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
+                    },
+                }
+                UIManager:show(dialog)
+            end,
+        },
+        {
+            text_func = function()
+                local labels = { title = _("Title"), date = _("Date"), chapters = _("Chapters"), lastread = _("Last read"), updated = _("Last updated") }
+                return T(_("Sort by: %1"), labels[self.manage_sort_mode] or _("Title"))
+            end,
+            keep_menu_open = true,
+            callback = function()
+                local dialog
+                dialog = ButtonDialog:new{
+                    title = _("Sort by"),
+                    buttons = {
+                        {{ text = (self.manage_sort_mode == "title" and "● " or "○ ") .. _("Title"), callback = function()
+                            self.manage_sort_mode = "title"; self:saveSettings(); UIManager:close(dialog); refresh()
+                        end }},
+                        {{ text = (self.manage_sort_mode == "date" and "● " or "○ ") .. _("Date downloaded"), callback = function()
+                            self.manage_sort_mode = "date"; self:saveSettings(); UIManager:close(dialog); refresh()
+                        end }},
+                        {{ text = (self.manage_sort_mode == "chapters" and "● " or "○ ") .. _("Chapter count"), callback = function()
+                            self.manage_sort_mode = "chapters"; self:saveSettings(); UIManager:close(dialog); refresh()
+                        end }},
+                        {{ text = (self.manage_sort_mode == "lastread" and "● " or "○ ") .. _("Last read"), callback = function()
+                            self.manage_sort_mode = "lastread"; self:saveSettings(); UIManager:close(dialog); refresh()
+                        end }},
+                        {{ text = (self.manage_sort_mode == "updated" and "● " or "○ ") .. _("Last updated"), callback = function()
+                            self.manage_sort_mode = "updated"; self:saveSettings(); UIManager:close(dialog); refresh()
+                        end }},
+                        {{ text = _("Cancel"), callback = function() UIManager:close(dialog) end }},
+                    },
+                }
+                UIManager:show(dialog)
+            end,
+        },
+    }
+    settings_menu = Menu:new{
         title             = _("Settings"),
-        item_table        = settings_items,
+        item_table        = self._settings_items,
         covers_fullscreen = true,
         is_borderless     = true,
         is_popout         = false,
+        close_callback    = function()
+            UIManager:scheduleIn(0, function()
+                if settings_menu == nil then return end
+                local still_shown = false
+                for _, w in ipairs(UIManager._window_stack or {}) do
+                    if w.widget == settings_menu then still_shown = true; break end
+                end
+                if still_shown then return end
+                self._settings_menu = nil
+                settings_menu = nil
+                if self._settings_view_dirty then
+                    self._settings_view_dirty = nil
+                    if self.manage_menu then UIManager:close(self.manage_menu) end
+                    self:manageDownloads()
+                end
+            end)
+        end,
     }
-    UIManager:show(settings_menu)
+    self._settings_menu = settings_menu
+    UIManager:show(self._settings_menu)
 end
 
 function M:setRateLimit()

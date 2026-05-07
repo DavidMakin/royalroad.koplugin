@@ -8,6 +8,7 @@ local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local ImageWidget    = require("ui/widget/imagewidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
+local RenderText     = require("ui/rendertext")
 local Size           = require("ui/size")
 local TextBoxWidget  = require("ui/widget/textboxwidget")
 local TextWidget     = require("ui/widget/textwidget")
@@ -24,6 +25,23 @@ local STORY_ITEM_PAD     = 8
 local GRID_COLS     = 3
 local GRID_CELL_GAP = 6
 local GRID_ROW_GAP  = 8
+
+local function fitText(text, face, max_width)
+    local w = RenderText:sizeUtf8Text(0, max_width, face, text, true, false).x
+    if w <= max_width then return text end
+    local ellipsis = "…"
+    local lo, hi = 1, #text
+    while lo < hi do
+        local mid = math.floor((lo + hi + 1) / 2)
+        local candidate = text:sub(1, mid) .. ellipsis
+        if RenderText:sizeUtf8Text(0, max_width, face, candidate, true, false).x <= max_width then
+            lo = mid
+        else
+            hi = mid - 1
+        end
+    end
+    return text:sub(1, lo) .. ellipsis
+end
 
 local function extractEpubCover(epub_path)
     local FileManagerBookInfo = require("apps/filemanager/filemanagerbookinfo")
@@ -89,6 +107,7 @@ function StoryListItem:init()
         face      = Font:getFace("smalltfont", 16),
         max_width = text_width,
         bold      = true,
+        fgcolor   = story.missing and Blitbuffer.COLOR_DARK_GRAY or nil,
     })
     if story.author and story.author ~= "" then
         table.insert(info_group, VerticalSpan:new{ width = 2 })
@@ -111,13 +130,14 @@ function StoryListItem:init()
     end
 
     local TopContainer = require("ui/widget/container/topcontainer")
+    local bg = self.story.missing and Blitbuffer.gray(0.8) or Blitbuffer.COLOR_WHITE
     self[1] = FrameContainer:new{
         width      = self.width,
         height     = self.height,
         padding    = 0,
         margin     = 0,
         bordersize = 0,
-        background = Blitbuffer.COLOR_WHITE,
+        background = bg,
         VerticalGroup:new{
             align = "left",
             VerticalSpan:new{ width = STORY_ITEM_PAD },
@@ -162,13 +182,14 @@ function StoryListItem:onHoldSelect()
 end
 
 local StoryCoverCell = InputContainer:extend{
-    story       = nil,
-    cell_width  = nil,
-    cell_height = nil,
-    cover_width = nil,
+    story        = nil,
+    cell_width   = nil,
+    cell_height  = nil,
+    cover_width  = nil,
     cover_height = nil,
-    show_parent = nil,
-    menu        = nil,
+    show_parent  = nil,
+    menu         = nil,
+    show_title   = true,
 }
 
 function StoryCoverCell:init()
@@ -214,28 +235,31 @@ function StoryCoverCell:init()
     }
 
     local title_height = math.ceil(14 * 1.3) * 2
-    local title_widget = TextBoxWidget:new{
-        text      = self.story.title or "",
-        face      = Font:getFace("smallffont", 14),
-        width     = self.cover_width,
-        height    = title_height,
-        alignment = "center",
-    }
+    local inner_h = self.cover_height + (self.show_title and (4 + title_height) or 0)
+
+    local content = VerticalGroup:new{ align = "center", cover_widget }
+    if self.show_title then
+        local title_widget = TextBoxWidget:new{
+            text      = self.story.title or "",
+            face      = Font:getFace("smallffont", 14),
+            width     = self.cover_width,
+            height    = title_height,
+            alignment = "center",
+            fgcolor   = self.story.missing and Blitbuffer.COLOR_DARK_GRAY or nil,
+        }
+        table.insert(content, VerticalSpan:new{ width = 4 })
+        table.insert(content, title_widget)
+    end
 
     self[1] = FrameContainer:new{
         width      = self.cell_width,
         height     = self.cell_height,
         padding    = GRID_CELL_GAP,
         bordersize = 0,
-        background = Blitbuffer.COLOR_WHITE,
+        background = self.story.missing and Blitbuffer.gray(0.8) or Blitbuffer.COLOR_WHITE,
         CenterContainer:new{
-            dimen = Geom:new{ w = self.cell_width - 2 * GRID_CELL_GAP, h = self.cover_height + 4 + title_height },
-            VerticalGroup:new{
-                align = "center",
-                cover_widget,
-                VerticalSpan:new{ width = 4 },
-                title_widget,
-            },
+            dimen = Geom:new{ w = self.cell_width - 2 * GRID_CELL_GAP, h = inner_h },
+            content,
         },
     }
 end
@@ -269,6 +293,7 @@ return {
     StoryListItem    = StoryListItem,
     StoryCoverCell   = StoryCoverCell,
     extractEpubCover = extractEpubCover,
+    fitText          = fitText,
     STORY_COVER_HEIGHT = STORY_COVER_HEIGHT,
     STORY_COVER_WIDTH  = STORY_COVER_WIDTH,
     STORY_ITEM_PAD     = STORY_ITEM_PAD,

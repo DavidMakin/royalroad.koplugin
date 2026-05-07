@@ -8,6 +8,7 @@ local lfs            = require("libs/libkoreader-lfs")
 local logger         = require("logger")
 local util           = require("util")
 local _              = require("gettext")
+local C              = require("royalroad/constants")
 
 local RoyalRoadDownloader = WidgetContainer:extend{
     name = "royalroad",
@@ -66,24 +67,6 @@ function RoyalRoadDownloader:init()
     if self.debug_chapter_limit then
         logger.info("Royal Road: DEBUG MODE - Limiting downloads to", self.debug_chapter_limit, "chapters")
     end
-    self:scheduleAutoUpdateCheck()
-end
-
-function RoyalRoadDownloader:scheduleAutoUpdateCheck()
-    if not self.auto_check_updates then return end
-    if self:countDownloadedStories() == 0 then return end
-    local interval_secs = (self.auto_check_interval_hours or 24) * 3600
-    local due = os.time() - (self.last_auto_check or 0) >= interval_secs
-    if not due then return end
-    UIManager:scheduleIn(10, function()
-        logger.info("Royal Road: Running automatic update check")
-        self.last_auto_check = os.time()
-        self:saveSettings()
-        local ok, err = pcall(function() self:performUpdateCheck() end)
-        if not ok then
-            logger.err("Royal Road: Auto update check failed:", err)
-        end
-    end)
 end
 
 function RoyalRoadDownloader:loadSettings()
@@ -91,20 +74,22 @@ function RoyalRoadDownloader:loadSettings()
     self.downloaded_stories = self.settings:readSetting("downloaded_stories", {})
     self.download_dir = self.settings:readSetting("download_dir", self.default_download_dir)
     self.use_epub = self.settings:readSetting("use_epub", true)
-    self.rate_limit_delay = self.settings:readSetting("rate_limit_delay", 1.5)
-    self.manage_view_mode = self.settings:readSetting("manage_view_mode", "list")
-    self.manage_sort_mode = self.settings:readSetting("manage_sort_mode", "title")
-    self.mosaic_cols      = self.settings:readSetting("mosaic_cols", 3)
-    self.mosaic_rows      = self.settings:readSetting("mosaic_rows", 2)
-    self.auto_check_updates = self.settings:readSetting("auto_check_updates", false)
-    self.auto_check_interval_hours = self.settings:readSetting("auto_check_interval_hours", 24)
-    self.last_auto_check = self.settings:readSetting("last_auto_check", 0)
+    self.rate_limit_delay = self.settings:readSetting("rate_limit_delay", C.NETWORK.DEFAULT_RATE_LIMIT)
+    self.manage_view_mode = self.settings:readSetting("manage_view_mode", C.DEFAULTS.VIEW_MODE)
+    self.manage_sort_mode = self.settings:readSetting("manage_sort_mode", C.DEFAULTS.SORT_MODE)
+    self.mosaic_cols        = self.settings:readSetting("mosaic_cols", C.DEFAULTS.MOSAIC_COLS)
+    self.mosaic_rows        = self.settings:readSetting("mosaic_rows", C.DEFAULTS.MOSAIC_ROWS)
+    self.mosaic_hide_title  = self.settings:readSetting("mosaic_hide_title", false)
     self._story_count = nil
     local dirty = false
     for fiction_id, story in pairs(self.downloaded_stories) do
-        if story.epub_path and not lfs.attributes(story.epub_path, "mode") then
-            logger.err("Royal Road: EPUB missing, removing from tracking:", story.title, story.epub_path)
-            self.downloaded_stories[fiction_id] = nil
+        local file_missing = story.epub_path and not lfs.attributes(story.epub_path, "mode")
+        if file_missing and not story.missing then
+            logger.warn("Royal Road: EPUB missing, marking as missing:", story.title, story.epub_path)
+            story.missing = true
+            dirty = true
+        elseif not file_missing and story.missing then
+            story.missing = nil
             dirty = true
         end
     end
@@ -128,11 +113,9 @@ function RoyalRoadDownloader:saveSettings()
     self.settings:saveSetting("rate_limit_delay", self.rate_limit_delay)
     self.settings:saveSetting("manage_view_mode", self.manage_view_mode)
     self.settings:saveSetting("manage_sort_mode", self.manage_sort_mode)
-    self.settings:saveSetting("mosaic_cols",      self.mosaic_cols)
-    self.settings:saveSetting("mosaic_rows",      self.mosaic_rows)
-    self.settings:saveSetting("auto_check_updates", self.auto_check_updates)
-    self.settings:saveSetting("auto_check_interval_hours", self.auto_check_interval_hours)
-    self.settings:saveSetting("last_auto_check", self.last_auto_check)
+    self.settings:saveSetting("mosaic_cols",       self.mosaic_cols)
+    self.settings:saveSetting("mosaic_rows",       self.mosaic_rows)
+    self.settings:saveSetting("mosaic_hide_title", self.mosaic_hide_title)
     self.settings:flush()
 end
 

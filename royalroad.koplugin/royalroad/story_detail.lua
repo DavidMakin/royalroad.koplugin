@@ -21,6 +21,7 @@ local logger          = require("logger")
 local ffiUtil         = require("ffi/util")
 local T               = ffiUtil.template
 local _               = require("gettext")
+local C               = require("royalroad/constants")
 
 local M = {}
 
@@ -34,6 +35,13 @@ function M:showStoryOptions(fiction_id)
     end
 
     local epub_exists = story.epub_path and lfs.attributes(story.epub_path, "mode") ~= nil
+    if epub_exists and story.missing then
+        story.missing = nil
+        self:saveSettings()
+    elseif not epub_exists and not story.missing then
+        story.missing = true
+        self:saveSettings()
+    end
 
     local screen_w = Device.screen:getWidth()
     local dialog_w = math.floor(screen_w * 0.85)
@@ -182,9 +190,6 @@ function M:showStoryOptions(fiction_id)
         table.insert(buttons, {{
             text = _("\u{21BB} Check for updates"),
             callback = function()
-                UIManager:close(self.story_detail_dialog)
-                UIManager:setDirty(nil, "ui")
-                if self.manage_menu then UIManager:close(self.manage_menu) end
                 self:checkSingleStoryForUpdates(fiction_id)
             end,
         }})
@@ -311,14 +316,18 @@ function M:checkSingleStoryForUpdates(fiction_id)
     local story = self.downloaded_stories[fiction_id]
     if not story then return end
 
-    UIManager:show(InfoMessage:new{
+    local checking_msg = InfoMessage:new{
         text = T(_("Checking %1 for updates..."), story.title),
-        timeout = 2,
-    })
+    }
+    UIManager:show(checking_msg)
 
     UIManager:scheduleIn(0.1, function()
-        local story_url = "https://www.royalroad.com/fiction/" .. fiction_id
+        local story_url = C.BASE_URL .. "/fiction/" .. fiction_id
         local story_html = self:fetchPageCached(story_url)
+
+        UIManager:close(checking_msg)
+        UIManager:close(self.story_detail_dialog)
+        UIManager:setDirty(nil, "ui")
 
         if not story_html then
             UIManager:show(InfoMessage:new{
@@ -354,9 +363,9 @@ function M:removeFromTracking(fiction_id)
     local story = self.downloaded_stories[fiction_id]
     if not story then return end
 
-            self.downloaded_stories[fiction_id] = nil
-            self:_invalidateCoverCache(fiction_id)
-            self:_invalidateStoryCount()
+    self.downloaded_stories[fiction_id] = nil
+    self:_invalidateCoverCache(fiction_id)
+    self:_invalidateStoryCount()
     self:saveSettings()
 
     UIManager:show(InfoMessage:new{
@@ -387,6 +396,7 @@ function M:deleteStoryCompletely(fiction_id)
             end
 
             self.downloaded_stories[fiction_id] = nil
+            self:_invalidateCoverCache(fiction_id)
             self:_invalidateStoryCount()
             self:saveSettings()
 
@@ -444,7 +454,7 @@ function M:resumePartialDownload(fiction_id)
     })
 
     UIManager:scheduleIn(0.1, function()
-        local story_html = self:fetchPageCached("https://www.royalroad.com/fiction/" .. fiction_id)
+        local story_html = self:fetchPageCached(C.BASE_URL .. "/fiction/" .. fiction_id)
 
         if not story_html then
             UIManager:show(InfoMessage:new{

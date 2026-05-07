@@ -9,6 +9,8 @@ local _             = require("gettext")
 
 local M = {}
 
+local C = require("royalroad/constants")
+
 function M:showBatchActions()
     if self:countDownloadedStories() == 0 then
         UIManager:show(InfoMessage:new{
@@ -157,7 +159,7 @@ function M:batchUpdate(selected)
 
         UIManager:scheduleIn(0, function()
             if story then
-                local story_html = self:fetchPage("https://www.royalroad.com/fiction/" .. fiction_id)
+                local story_html = self:fetchPage(C.BASE_URL .. "/fiction/" .. fiction_id)
                 if story_html then
                     local current_urls = self:extractChapterURLs(story_html, fiction_id)
                     local stored_count = #(story.chapter_urls or {})

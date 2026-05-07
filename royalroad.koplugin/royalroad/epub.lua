@@ -119,12 +119,13 @@ function M:extractChaptersFromEPUB(epub_path)
     for entry in arc:iterate() do
         if entry.mode == "file" then
             local path = entry.path
+            local basename = path:match("([^/]+)$") or path
             logger.dbg("Royal Road: EPUB entry:", path)
             if path:match("content%.opf$") then
                 file_contents["content.opf"] = arc:extractToMemory(path)
                 logger.info("Royal Road: Found content.opf")
-            elseif path:match("chapter_%d+%.xhtml$") then
-                file_contents[path] = arc:extractToMemory(path)
+            elseif basename:match("chapter_%d+%.xhtml$") then
+                file_contents[basename] = arc:extractToMemory(path)
                 logger.info("Royal Road: Found chapter file:", path)
             end
         end
@@ -148,9 +149,9 @@ function M:extractChaptersFromEPUB(epub_path)
     for idref in opf_content:gmatch('<itemref[^>]+idref="([^"]+)"') do
         local href = id_to_href[idref]
         if href and href:match("chapter_") then
-            local full_path = href
-            table.insert(chapter_files, full_path)
-            logger.dbg("Royal Road: Spine chapter:", idref, "->", full_path)
+            local basename = href:match("([^/]+)$") or href
+            table.insert(chapter_files, basename)
+            logger.dbg("Royal Road: Spine chapter:", idref, "->", basename)
         end
     end
 
@@ -460,15 +461,21 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
     end)
 
     if ok and result then
+        local existing = self.downloaded_stories[fiction_id] or {}
         self.downloaded_stories[fiction_id] = {
-            fiction_id = fiction_id,
-            title = story_title,
-            author = author,
-            chapter_urls = chapter_urls or {},
-            epub_path = filename,
-            cover_url = cover_url,
-            download_date = os.time(),
-            last_update = os.time(),
+            fiction_id         = fiction_id,
+            title              = story_title,
+            author             = author,
+            chapter_urls       = chapter_urls or {},
+            epub_path          = filename,
+            cover_url          = cover_url,
+            download_date      = existing.download_date or os.time(),
+            last_update        = os.time(),
+            rating             = existing.rating,
+            status             = existing.status,
+            word_count         = existing.word_count,
+            description        = existing.description,
+            last_chapter_date  = existing.last_chapter_date,
         }
         self:_invalidateStoryCount()
         self:saveSettings()

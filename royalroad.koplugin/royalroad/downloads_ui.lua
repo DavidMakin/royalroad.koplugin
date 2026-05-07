@@ -34,7 +34,9 @@ function M:manageDownloads()
     for fiction_id, story in pairs(self.downloaded_stories) do
         story.fiction_id = fiction_id
         local display_title = story.title or "Unknown"
-        if story.partial_of then
+        if story.missing then
+            display_title = display_title .. _(" [missing]")
+        elseif story.partial_of then
             display_title = display_title .. T(_(" [%1/%2 ch]"), #(story.chapter_urls or {}), story.partial_of)
         end
         if story.unread_new_count and story.unread_new_count > 0 then
@@ -217,10 +219,11 @@ function M:manageDownloads()
     end
 
     if self.manage_view_mode == "mosaic" then
-        local cols     = downloader.mosaic_cols or 3
-        local rows     = downloader.mosaic_rows or 2
-        local screen_w = Device.screen:getWidth()
-        local title_h  = math.ceil(14 * 1.3) * 2
+        local cols      = downloader.mosaic_cols or 3
+        local rows      = downloader.mosaic_rows or 2
+        local hide_title = downloader.mosaic_hide_title or false
+        local screen_w  = Device.screen:getWidth()
+        local title_h   = hide_title and 0 or (math.ceil(14 * 1.3) * 2)
 
         local StoryMosaicMenu = StoryMenuBase:extend{}
 
@@ -238,7 +241,7 @@ function M:manageDownloads()
             local cell_w       = math.floor((inner_w - GRID_CELL_GAP * (cols - 1)) / cols)
             local cell_h       = math.floor((avail_h - GRID_ROW_GAP  * (rows + 1)) / rows)
             local cover_w_max  = math.max(0, cell_w - GRID_CELL_GAP * 2)
-            local cover_h_max  = math.max(0, cell_h - title_h - 4 - GRID_CELL_GAP * 2)
+            local cover_h_max  = math.max(0, cell_h - title_h - (hide_title and 0 or 4) - GRID_CELL_GAP * 2)
             local cover_h      = math.min(cover_h_max, math.floor(cover_w_max * 3 / 2))
             local cover_w      = math.floor(cover_h * 2 / 3)
             self._cell_w    = cell_w
@@ -284,6 +287,7 @@ function M:manageDownloads()
                             cell_height  = cell_h,
                             cover_width  = cover_w,
                             cover_height = cover_h,
+                            show_title   = not hide_title,
                             show_parent  = self.show_parent,
                             menu         = self,
                         }
@@ -385,6 +389,10 @@ function M:manageDownloads()
                         {{ text = "\u{2261} " .. _("Switch to list view"),     align = "left", callback = function() downloader.manage_view_mode = "list" closeAndRefresh(view_dialog, menu) end }},
                         {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
                         {{ text = "\u{229E} " .. _("Grid size…"),              align = "left", callback = function() UIManager:close(view_dialog) open_grid() end }},
+                        {{ text = (downloader.mosaic_hide_title and "✓ " or "○ ") .. _("Hide titles"),  align = "left", callback = function()
+                            downloader.mosaic_hide_title = not downloader.mosaic_hide_title
+                            closeAndRefresh(view_dialog, menu)
+                        end }},
                         {},
                         {{ text = "\u{2193} " .. _("Download story"),          align = "left", callback = function() UIManager:close(view_dialog) downloader:downloadStory() end }},
                         {{ text = "\u{2315} " .. _("Search Royal Road"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:searchStories() end }},

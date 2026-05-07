@@ -9,7 +9,6 @@ local Geom            = require("ui/geometry")
 local InfoMessage     = require("ui/widget/infomessage")
 local InputDialog     = require("ui/widget/inputdialog")
 local ProgressWidget  = require("ui/widget/progresswidget")
-local RenderText      = require("ui/rendertext")
 local Size            = require("ui/size")
 local TextWidget      = require("ui/widget/textwidget")
 local UIManager       = require("ui/uimanager")
@@ -26,32 +25,17 @@ local _               = require("gettext")
 local NetworkMgr      = require("ui/network/manager")
 
 local widgets        = require("royalroad/widgets")
+local C              = require("royalroad/constants")
 local extractEpubCover = widgets.extractEpubCover
+local fitText          = widgets.fitText
 
 local M = {}
 
-local HTTP_CONNECT_TIMEOUT = 10
-local HTTP_TOTAL_TIMEOUT   = 60
-local SCHEDULE_DELAY       = 0.1
-local YIELD_DELAY          = 0.01
-local MAX_COVER_CACHE      = 50
-
-local function fitText(text, face, max_width)
-    local w = RenderText:sizeUtf8Text(0, max_width, face, text, true, false).x
-    if w <= max_width then return text end
-    local ellipsis = "…"
-    local lo, hi = 1, #text
-    while lo < hi do
-        local mid = math.floor((lo + hi + 1) / 2)
-        local candidate = text:sub(1, mid) .. ellipsis
-        if RenderText:sizeUtf8Text(0, max_width, face, candidate, true, false).x <= max_width then
-            lo = mid
-        else
-            hi = mid - 1
-        end
-    end
-    return text:sub(1, lo) .. ellipsis
-end
+local HTTP_CONNECT_TIMEOUT = C.HTTP.CONNECT_TIMEOUT
+local HTTP_TOTAL_TIMEOUT   = C.HTTP.TOTAL_TIMEOUT
+local SCHEDULE_DELAY       = C.NETWORK.SCHEDULE_DELAY
+local YIELD_DELAY          = C.NETWORK.YIELD_DELAY
+local MAX_COVER_CACHE      = C.CACHE.MAX_COVERS
 
 local function json_str(s)
     return (s or "")
@@ -155,7 +139,7 @@ function M:processFiction(fiction_id)
             timeout = 2,
         })
 
-        local fiction_url = "https://www.royalroad.com/fiction/" .. fiction_id
+        local fiction_url = C.BASE_URL .. "/fiction/" .. fiction_id
         local story_html = self:fetchPageCached(fiction_url)
 
         if not story_html then
@@ -247,7 +231,7 @@ function M:processFictionAll(fiction_id)
             timeout = 2,
         })
 
-        local fiction_url = "https://www.royalroad.com/fiction/" .. fiction_id
+        local fiction_url = C.BASE_URL .. "/fiction/" .. fiction_id
         local story_html = self:fetchPageCached(fiction_url)
         if not story_html then return end
 
@@ -433,7 +417,7 @@ end
 function M:fetchPageCached(url)
     if not self._page_cache then self._page_cache = {} end
     local entry = self._page_cache[url]
-    if entry and os.time() - entry.time < 300 then
+    if entry and os.time() - entry.time < C.NETWORK.PAGE_CACHE_TTL then
         return entry.html
     end
     local html = self:fetchPage(url)
@@ -452,7 +436,7 @@ function M:fetchPage(page_url)
             method = "GET",
             sink = ltn12.sink.table(response_body),
             headers = {
-                ["User-Agent"] = "Mozilla/5.0 (compatible; KOReader/1.0)",
+                ["User-Agent"] = C.USER_AGENT,
                 ["Accept"] = "text/html",
             },
         }
@@ -466,9 +450,6 @@ function M:fetchPage(page_url)
         end
 
         logger.warn("Royal Road: HTTP", code, status, "attempt", attempt + 1, "url", page_url)
-        if attempt < #delays then
-            socket.sleep(delays[attempt + 1])
-        end
     end
     return nil
 end
@@ -482,7 +463,7 @@ function M:fetchImage(image_url)
         method = "GET",
         sink = ltn12.sink.table(response_body),
         headers = {
-            ["User-Agent"] = "Mozilla/5.0 (compatible; KOReader/1.0)",
+            ["User-Agent"] = C.USER_AGENT,
             ["Accept"] = "image/*",
         },
     }
@@ -547,7 +528,7 @@ function M:extractChapterURLs(html, fiction_id)
 
     if html:find('window%.chapters%s*=') then
         for chapter_id, slug in html:gmatch('"id":(%d+),"volumeId":%d+,"title":"[^"]*","slug":"([^"]+)"') do
-            local full_url = string.format("https://www.royalroad.com/fiction/%s/%s/chapter/%s/%s",
+            local full_url = string.format(C.BASE_URL .. "/fiction/%s/%s/chapter/%s/%s",
                 fiction_id, story_slug, chapter_id, slug)
             if not seen[full_url] then
                 seen[full_url] = true
@@ -561,7 +542,7 @@ function M:extractChapterURLs(html, fiction_id)
 
     if #chapters == 0 then
         for chapter_path in html:gmatch('href="(/fiction/' .. fiction_id .. '/[^/]+/chapter/%d+/[^"]+)"') do
-            local full_url = "https://www.royalroad.com" .. chapter_path
+            local full_url = C.BASE_URL .. chapter_path
             if not seen[full_url] then
                 seen[full_url] = true
                 table.insert(chapters, full_url)
@@ -752,8 +733,9 @@ function M:downloadNextChapter(state, i)
             end
             local entry = self.downloaded_stories[state.fiction_id]
             if entry then
-                entry.partial_of    = state.total_chapters
-                entry.chapter_urls  = fetched_urls
+                entry.partial_of          = state.total_chapters
+                entry.chapter_urls        = fetched_urls
+                entry.queued_chapter_urls = state.chapter_urls
                 self:saveSettings()
             end
             UIManager:show(InfoMessage:new{

@@ -10,7 +10,7 @@ local _           = require("gettext")
 
 local M = {}
 
-local MAX_SEARCH_RESULTS = 20
+local C = require("royalroad/constants")
 
 function M:searchStories()
     local search_dialog
@@ -53,7 +53,7 @@ function M:performSearch(query)
 
         UIManager:scheduleIn(0.1, function()
             local encoded = util.urlEncode(query)
-            local url = "https://www.royalroad.com/fictions/search?title=" .. encoded
+            local url = C.BASE_URL .. C.SEARCH.URL_PATH .. encoded
 
             local html = self:fetchPage(url)
             if not html then
@@ -105,10 +105,7 @@ function M:parseSearchResults(html)
             local rating = block:match('"ratingValue"%s*:%s*"([%d%.]+)"')
                 or block:match('<span[^>]*class="[^"]*number[^"]*"[^>]*>([%d%.]+)</span>')
 
-            local status = block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Ongoing)%s*</span>')
-                or block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Completed)%s*</span>')
-                or block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Hiatus)%s*</span>')
-                or block:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Stub)%s*</span>')
+            local status = self:extractStatus(block)
 
             local wc_raw = block:match('"wordCount"%s*:%s*(%d+)')
                 or block:match('<span[^>]*title="Words"[^>]*>%s*([%d,]+)%s*</span>')
@@ -136,7 +133,7 @@ function M:parseSearchResults(html)
                 })
             end
         end
-            if #results >= MAX_SEARCH_RESULTS then break end
+            if #results >= C.SEARCH.MAX_RESULTS then break end
     end
 
     return results
@@ -158,7 +155,7 @@ function M:showSearchResults(query, results)
         if r.rating then
             sub = sub .. " ★" .. r.rating
         end
-        if #sub > 40 then sub = sub:sub(1, 38) .. "…" end
+        if #sub > C.SEARCH.MAX_SUB_CHARS then sub = sub:sub(1, C.SEARCH.MAX_SUB_CHARS - 2) .. "…" end
         table.insert(item_table, {
             text       = r.title,
             mandatory  = sub,
