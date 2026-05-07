@@ -24,7 +24,7 @@ jobs:
           git checkout main
           git pull origin main
           VERSION="${GITHUB_REF_NAME#v}"
-          sed -i -E "s/(version\s*=\s*)\"[^\"]+\"/\1\"${VERSION}\"/" royalroad.koplugin/_meta.lua
+          sed -i -E "s/^([[:space:]]*version[[:space:]]*=[[:space:]]*)\"[^\"]+\"/\1\"${VERSION}\"/" royalroad.koplugin/_meta.lua
           echo "Set version to ${VERSION}"
           grep version royalroad.koplugin/_meta.lua
           git add royalroad.koplugin/_meta.lua
