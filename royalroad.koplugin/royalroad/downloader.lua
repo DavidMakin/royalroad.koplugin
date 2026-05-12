@@ -573,10 +573,11 @@ function M:extractRating(html)
 end
 
 function M:extractStatus(html)
-    return html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Ongoing)%s*</span>')
-        or html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Completed)%s*</span>')
-        or html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Hiatus)%s*</span>')
-        or html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*(Stub)%s*</span>')
+    for _, status in ipairs({ "Ongoing", "Completed", "Hiatus", "Stub" }) do
+        if html:match('<span[^>]*class="[^"]*label[^"]*"[^>]*>%s*' .. status .. '%s*</span>') then
+            return status
+        end
+    end
 end
 
 function M:extractWordCount(html)
