@@ -80,6 +80,10 @@ From here you can:
 - Re-download or delete a story
 - Filter and sort your library
 
+Tap a story to see per-story options.
+
+<img src="docs/screenshots/story_menu.png" width="300" alt="Story options menu">
+
 ### Updating stories
 
 Tap **Check for updates** to scan all your downloaded stories for new chapters. Stories with updates are listed — tap **Update** to download the new chapters and merge them into the existing EPUB. Your reading position and bookmarks are preserved.
