@@ -203,6 +203,30 @@ function StoryCoverCell:init()
         },
     }
 
+    if self.story.is_hint then
+        self[1] = FrameContainer:new{
+            width      = self.cell_width,
+            height     = self.cell_height,
+            padding    = GRID_CELL_GAP,
+            bordersize = 0,
+            background = Blitbuffer.COLOR_WHITE,
+            CenterContainer:new{
+                dimen = Geom:new{
+                    w = self.cell_width - 2 * GRID_CELL_GAP,
+                    h = self.cell_height - 2 * GRID_CELL_GAP,
+                },
+                TextBoxWidget:new{
+                    text      = self.story.title or "",
+                    face      = Font:getFace("smallffont"),
+                    width     = self.cell_width - 2 * GRID_CELL_GAP,
+                    alignment = "center",
+                    fgcolor   = Blitbuffer.COLOR_DARK_GRAY,
+                },
+            },
+        }
+        return
+    end
+
     local inner_cover
     if self.story.cover_bb then
         inner_cover = ImageWidget:new{
