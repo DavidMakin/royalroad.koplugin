@@ -228,31 +228,37 @@ function M:processFiction(fiction_id)
     end)
 end
 
-function M:resumeDownload(fiction_id)
+function M:_resumeWithCandidateUrls(fiction_id, candidate_urls)
     local story = self.downloaded_stories[fiction_id]
-    if not story or not story.queued_chapter_urls then return end
+    if not story then return end
 
     local fetched_set = {}
     for _, u in ipairs(story.chapter_urls or {}) do fetched_set[u] = true end
-    local remaining_urls = {}
-    for _, u in ipairs(story.queued_chapter_urls) do
-        if not fetched_set[u] then
-            table.insert(remaining_urls, u)
-        end
+
+    local has_missing = false
+    for _, u in ipairs(candidate_urls) do
+        if not fetched_set[u] then has_missing = true; break end
     end
 
-    if #remaining_urls == 0 then
+    if not has_missing then
+        story.partial_of = nil
         story.queued_chapter_urls = nil
         self:saveSettings()
         UIManager:show(InfoMessage:new{
-            text    = _("Nothing left to resume."),
+            text    = T(_("%1 is already complete."), story.title),
             timeout = 3,
         })
         return
     end
 
-    logger.info("Royal Road: Resuming download of", #remaining_urls, "chapters for", story.title)
-    self:updateStory(fiction_id, story.queued_chapter_urls)
+    logger.info("Royal Road: Resuming download for", fiction_id, "with", #candidate_urls, "candidate URLs")
+    self:updateStory(fiction_id, candidate_urls)
+end
+
+function M:resumeDownload(fiction_id)
+    local story = self.downloaded_stories[fiction_id]
+    if not story or not story.queued_chapter_urls then return end
+    self:_resumeWithCandidateUrls(fiction_id, story.queued_chapter_urls)
 end
 
 function M:processFictionAll(fiction_id)

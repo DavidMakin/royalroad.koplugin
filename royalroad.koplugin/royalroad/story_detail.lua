@@ -469,45 +469,18 @@ function M:resumePartialDownload(fiction_id)
 
     UIManager:scheduleIn(0.1, function()
         local story_html = self:fetchPageCached(C.BASE_URL .. "/fiction/" .. fiction_id)
-
         if not story_html then
-            UIManager:show(InfoMessage:new{
-                text = _("Failed to fetch story page."),
-            })
+            UIManager:show(InfoMessage:new{ text = _("Failed to fetch story page.") })
             return
         end
 
         local current_urls = self:extractChapterURLs(story_html, fiction_id)
         if #current_urls == 0 then
-            UIManager:show(InfoMessage:new{
-                text = _("Could not find chapters on story page."),
-            })
+            UIManager:show(InfoMessage:new{ text = _("Could not find chapters on story page.") })
             return
         end
 
-        local stored_set = {}
-        for _, url in ipairs(story.chapter_urls or {}) do
-            stored_set[url] = true
-        end
-
-        local has_missing = false
-        for _, url in ipairs(current_urls) do
-            if not stored_set[url] then
-                has_missing = true
-                break
-            end
-        end
-
-        if not has_missing then
-            story.partial_of = nil
-            self:saveSettings()
-            UIManager:show(InfoMessage:new{
-                text = T(_("%1 is already complete."), story.title),
-            })
-            return
-        end
-
-        self:updateStory(fiction_id, current_urls)
+        self:_resumeWithCandidateUrls(fiction_id, current_urls)
     end)
 end
 
