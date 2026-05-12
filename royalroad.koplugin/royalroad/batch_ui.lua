@@ -126,6 +126,7 @@ function M:batchUpdate(selected)
     if #targets == 0 then return end
 
     local stories_with_updates = {}
+    local up_to_date = {}
     local errors = {}
     local total = #targets
     local current_msg
@@ -136,15 +137,31 @@ function M:batchUpdate(selected)
             current_msg = nil
         end
         if idx > total then
+            local lines = {}
+            for _, u in ipairs(stories_with_updates) do
+                table.insert(lines, T(_("↑ %1 (+%2 ch)"), u.title, u.new_chapters))
+            end
+            for _, title in ipairs(up_to_date) do
+                table.insert(lines, "✓ " .. title)
+            end
+            for _, title in ipairs(errors) do
+                table.insert(lines, "✗ " .. title)
+            end
+            local summary = table.concat(lines, "\n")
+
             if #stories_with_updates == 0 then
-                local msg = _("All selected stories are up to date!")
-                if #errors > 0 then
-                    msg = msg .. "\n\n" .. T(_("Failed to check: %1"), table.concat(errors, ", "))
-                end
-                UIManager:show(InfoMessage:new{ text = msg })
+                UIManager:show(InfoMessage:new{
+                    text = _("All up to date:\n\n") .. summary,
+                })
                 return
             end
-            self:showUpdateMenu(stories_with_updates)
+            UIManager:show(InfoMessage:new{
+                text = summary,
+                timeout = 4,
+            })
+            UIManager:scheduleIn(4.2, function()
+                self:showUpdateMenu(stories_with_updates)
+            end)
             return
         end
 
@@ -162,6 +179,8 @@ function M:batchUpdate(selected)
                     table.insert(stories_with_updates, update)
                 elseif fetch_failed then
                     table.insert(errors, story.title or fiction_id)
+                else
+                    table.insert(up_to_date, story.title or fiction_id)
                 end
             end
             process_next(idx + 1)
