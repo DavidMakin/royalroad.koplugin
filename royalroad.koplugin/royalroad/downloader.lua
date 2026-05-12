@@ -589,11 +589,7 @@ function M:extractWordCount(html)
 end
 
 function M:extractLastChapterDate(html)
-    local last_date = nil
-    for date in html:gmatch('<time[^>]+datetime="([^"]+)"') do
-        last_date = date
-    end
-    return last_date
+    return html:match('.*<time[^>]+datetime="([^"]+)"')
 end
 
 function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, partial_of)
