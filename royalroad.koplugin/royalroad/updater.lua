@@ -761,25 +761,9 @@ function M:rebuildEPUBWithNewChapters(state)
         end
     end
     if cover_url then
-        if not self._cover_cache then self._cover_cache = {} end
-        if self._cover_cache[cover_url] then
-            cover_image = {
-                data      = self._cover_cache[cover_url].data,
-                mime_type = self._cover_cache[cover_url].mime_type,
-                extension = self._cover_cache[cover_url].extension,
-            }
-            logger.info("Royal Road: Using cached cover image for update")
-        else
-            local image_data, mime_type, extension = self:fetchImage(cover_url)
-            if image_data then
-                cover_image = {
-                    data = image_data,
-                    mime_type = mime_type,
-                    extension = extension,
-                }
-                self._cover_cache[cover_url] = { data = image_data, mime_type = mime_type, extension = extension }
-                logger.info("Royal Road: Fetched cover image for update")
-            end
+        local image_data, mime_type, extension = self:fetchImage(cover_url)
+        if image_data then
+            cover_image = { data = image_data, mime_type = mime_type, extension = extension }
         end
     end
 
@@ -794,9 +778,6 @@ function M:rebuildEPUBWithNewChapters(state)
         state.story.epub_path,
         state.on_complete ~= nil
     )
-    if not state.on_complete then
-        self._cover_cache = nil
-    end
 
     local entry = self.downloaded_stories[state.fiction_id]
     if entry then
