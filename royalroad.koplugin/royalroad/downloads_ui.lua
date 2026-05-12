@@ -27,7 +27,6 @@ local GRID_ROW_GAP       = widgets.GRID_ROW_GAP
 local M = {}
 
 function M:_buildManageItemTable()
-    self._last_read_cache = nil
     local filter_text = self._manage_filter or ""
 
     local item_table = {}
