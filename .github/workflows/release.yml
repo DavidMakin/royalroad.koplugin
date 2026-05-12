@@ -45,10 +45,36 @@ jobs:
             -x '**/.github/*' \
             -x '**/*.zip'
 
+      - name: Build Changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          mode: "COMMIT"
+          configurationJson: |
+            {
+              "template": "#{{CHANGELOG}}",
+              "categories": [
+                { "title": "## 🚀 Features",    "labels": ["feat"] },
+                { "title": "## 🐛 Bug Fixes",   "labels": ["fix"] },
+                { "title": "## 🧰 Maintenance", "labels": ["refactor","chore","ci","build","docs","perf","style","test"] }
+              ],
+              "label_extractor": [
+                {
+                  "pattern": "^(feat|fix|refactor|chore|ci|build|docs|perf|style|test)(\\([^)]+\\))?(!)?:",
+                  "on_property": "title",
+                  "target": "$1"
+                }
+              ],
+              "ignore_labels": ["chore", "ci", "build", "style"],
+              "commit_template": "- #{{TITLE}}"
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
         with:
           files: royalroad.koplugin.zip
           draft: false
           prerelease: false
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.changelog }}
