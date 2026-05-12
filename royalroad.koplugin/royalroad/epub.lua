@@ -386,6 +386,10 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         local escaped_title  = self:escapeXML(story_title)
         local escaped_author = self:escapeXML(author)
         local has_cover      = cover_image and cover_image.data
+        local description    = (self._pending_descriptions and self._pending_descriptions[fiction_id])
+                            or (self.downloaded_stories[fiction_id] and self.downloaded_stories[fiction_id].description)
+                            or nil
+        local escaped_desc   = description and self:escapeXML(description) or nil
 
         epub:addFileFromMemory("mimetype", "application/epub+zip")
 
@@ -434,6 +438,9 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
             epub:addFileFromMemory("cover." .. cover_image.extension, cover_image.data)
         end
 
+        local desc_block = escaped_desc
+            and ('  <div class="description"><p>' .. escaped_desc .. '</p></div>\n')
+            or ""
         local title_xhtml = string.format([[<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" xmlns:epub="http://www.idpf.org/2007/ops">
@@ -450,12 +457,11 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         </div>
     </div>
   <p><em>By %s</em></p>
-  <p></p>
-  <p></p>
+%s  <p></p>
   <p><small>Downloaded from Royal Road</small></p>
   <p><small><a href="https://www.royalroad.com/fiction/%s">https://www.royalroad.com/fiction/%s</a></small></p>
 </body>
-</html>]], escaped_title, escaped_title, escaped_author, fiction_id, fiction_id)
+</html>]], escaped_title, escaped_title, escaped_author, desc_block, fiction_id, fiction_id)
         epub:addFileFromMemory("title.xhtml", title_xhtml)
 
         self:_addChapters(epub, chapters)
