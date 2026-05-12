@@ -405,8 +405,8 @@ function M:cachedExtractCover(fiction_id, epub_path)
     if self._cover_bb_cache[fiction_id] then
         return self._cover_bb_cache[fiction_id]
     end
-    local bb = extractEpubCover(epub_path)
-    if bb then
+
+    local function cacheBB(bb)
         local MAX_COVERS = MAX_COVER_CACHE
         if #self._cover_bb_order >= MAX_COVERS then
             local oldest = table.remove(self._cover_bb_order, 1)
@@ -416,6 +416,29 @@ function M:cachedExtractCover(fiction_id, epub_path)
         end
         self._cover_bb_cache[fiction_id] = bb
         table.insert(self._cover_bb_order, fiction_id)
+    end
+
+    local disk_path = self.cover_cache_dir .. "/" .. fiction_id .. ".png"
+    local f = io.open(disk_path, "rb")
+    if f then
+        f:close()
+        local ok, RenderImage = pcall(require, "ui/renderimage")
+        if ok then
+            local bb = RenderImage:renderImageFile(disk_path, false)
+            if bb then
+                cacheBB(bb)
+                return bb
+            end
+        end
+    end
+
+    local bb = extractEpubCover(epub_path)
+    if bb then
+        cacheBB(bb)
+        local ok, err = util.makePath(self.cover_cache_dir)
+        if ok or not err then
+            pcall(function() bb:writePNG(disk_path, false) end)
+        end
     end
     return bb
 end
@@ -433,6 +456,9 @@ function M:_invalidateCoverCache(fiction_id)
                 end
             end
         end
+    end
+    if self.cover_cache_dir and fiction_id then
+        os.remove(self.cover_cache_dir .. "/" .. fiction_id .. ".png")
     end
 end
 
