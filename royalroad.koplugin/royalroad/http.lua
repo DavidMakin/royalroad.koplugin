@@ -26,10 +26,12 @@ end
 
 function M:fetchPage(page_url)
     local delays = { 2, 5 }
+    local skip_delay = false
     for attempt = 0, #delays do
-        if attempt > 0 then
+        if attempt > 0 and not skip_delay then
             socket.sleep(delays[attempt])
         end
+        skip_delay = false
 
         local response_body = {}
         local request = {
@@ -47,18 +49,19 @@ function M:fetchPage(page_url)
         socketutil:reset_timeout()
 
         if code == 200 then
-            return table.concat(response_body)
+            return table.concat(response_body), nil
         end
 
         if code == 429 then
             local backoff = C.NETWORK.RATE_LIMIT_BACKOFF * (attempt + 1)
             logger.warn("Royal Road: HTTP 429 rate-limited, backing off", backoff, "s (attempt", attempt + 1, ")")
             socket.sleep(backoff)
+            skip_delay = true
         else
             logger.warn("Royal Road: HTTP", code, status, "attempt", attempt + 1, "url", page_url)
         end
     end
-    return nil
+    return nil, 0
 end
 
 function M:fetchImage(image_url)
