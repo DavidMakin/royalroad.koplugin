@@ -121,9 +121,11 @@ function M:showStoryOptions(fiction_id)
         fgcolor = Blitbuffer.COLOR_DARK_GRAY,
     })
     if story.word_count and story.word_count ~= "" then
+        local wk = math.floor(tonumber(story.word_count) / 100 + 0.5) / 10
+        local wc_str = wk and (wk .. "k") or tostring(story.word_count)
         table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
         table.insert(meta_group, TextWidget:new{
-            text    = T(_("%1 words"), story.word_count),
+            text    = T(_("%1 words"), wc_str),
             face    = Font:getFace("smallffont"),
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })
