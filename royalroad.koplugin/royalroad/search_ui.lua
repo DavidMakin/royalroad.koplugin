@@ -75,7 +75,36 @@ function M:performSearch(query)
                 return
             end
 
-            self:showSearchResults(query, results)
+            self:showSearchResults(query, results, 1)
+        end)
+    end)
+end
+
+function M:_loadMoreResults(query, current_results, page, results_menu)
+    NetworkMgr:runWhenOnline(function()
+        UIManager:show(InfoMessage:new{
+            text    = T(_("Loading page %1..."), page),
+            timeout = 2,
+        })
+        UIManager:scheduleIn(0.1, function()
+            local encoded = util.urlEncode(query)
+            local url = C.BASE_URL .. C.SEARCH.URL_PATH .. encoded .. "&page=" .. page
+            local html = self:fetchPage(url)
+            local new_results = html and self:parseSearchResults(html) or {}
+
+            if #new_results == 0 then
+                UIManager:show(InfoMessage:new{
+                    text    = _("No more results."),
+                    timeout = 2,
+                })
+                return
+            end
+
+            for _, r in ipairs(new_results) do
+                table.insert(current_results, r)
+            end
+            UIManager:close(results_menu)
+            self:showSearchResults(query, current_results, page)
         end)
     end)
 end
@@ -142,7 +171,7 @@ function M:parseSearchResults(html)
     return results
 end
 
-function M:showSearchResults(query, results)
+function M:showSearchResults(query, results, page)
     local downloader = self
     local item_table = {}
     for _, r in ipairs(results) do
@@ -168,6 +197,12 @@ function M:showSearchResults(query, results)
         })
     end
 
+    table.insert(item_table, {
+        text      = _("▼ Load more results…"),
+        mandatory = T(_("page %1"), page + 1),
+        load_more = true,
+    })
+
     local results_menu
     results_menu = Menu:new{
         covers_fullscreen  = true,
@@ -177,6 +212,10 @@ function M:showSearchResults(query, results)
         item_table         = item_table,
         title_bar_fm_style = true,
         onMenuSelect       = function(_menu, item)
+            if item.load_more then
+                self:_loadMoreResults(query, results, page + 1, results_menu)
+                return
+            end
             UIManager:close(results_menu)
             if downloader.downloaded_stories[item.fiction_id] then
                 UIManager:show(InfoMessage:new{
