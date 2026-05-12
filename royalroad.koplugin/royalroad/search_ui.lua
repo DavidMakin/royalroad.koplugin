@@ -13,10 +13,6 @@ local M = {}
 
 local C = require("royalroad/constants")
 
-local function trim(s)
-    return s:gsub("^%s+", ""):gsub("%s+$", "")
-end
-
 function M:searchStories()
     local search_dialog
     search_dialog = InputDialog:new{
@@ -108,97 +104,6 @@ function M:_loadMoreResults(query, current_results, page, results_menu, sort_mod
             self:showSearchResults(query, current_results, page, sort_mode)
         end)
     end)
-end
-
-function M:parseSearchResults(html)
-    local results = {}
-    local seen = {}
-
-    for block in html:gmatch('<div[^>]+class="[^"]*fiction%-list%-item[^"]*"[^>]*>(.-)</div>%s*</div>%s*</div>') do
-        local fiction_id = block:match('/fiction/(%d+)/')
-        if fiction_id and not seen[fiction_id] then
-            seen[fiction_id] = true
-
-            local title = block:match('<h2[^>]*>%s*(.-)%s*</h2>')
-                or block:match('class="[^"]*fiction%-title[^"]*"[^>]*>%s*(.-)%s*<')
-            if title then
-                title = trim(title:gsub("<[^>]+>", ""))
-                title = util.htmlEntitiesToUtf8(title)
-            end
-
-            local author = block:match('property="author"[^>]*>%s*(.-)%s*</')
-                or block:match('class="[^"]*author[^"]*"[^>]*>%s*(.-)%s*<')
-            if author then
-                author = trim(author:gsub("<[^>]+>", ""))
-            end
-
-            local chapters = block:match('<span[^>]*title="Chapters"[^>]*>%s*(%d+[^<]*)</span>')
-                or block:match('(%d+)%s*[Cc]hapters?')
-
-            local rating = block:match('"ratingValue"%s*:%s*"([%d%.]+)"')
-                or block:match('<span[^>]*class="[^"]*number[^"]*"[^>]*>([%d%.]+)</span>')
-
-            local status = self:extractStatus(block)
-
-            local wc_raw = block:match('"wordCount"%s*:%s*(%d+)')
-                or block:match('<span[^>]*title="Words"[^>]*>%s*([%d,]+)%s*</span>')
-            local word_count = wc_raw and wc_raw:gsub(",", "") or nil
-
-            local tags = {}
-            for tag_text in block:gmatch('<a[^>]+class="[^"]*tag[^"]*"[^>]*>(.-)</a>') do
-                local t = trim(tag_text:gsub("<[^>]+>", ""))
-                if t ~= "" then
-                    table.insert(tags, t)
-                    if #tags >= 3 then break end
-                end
-            end
-
-            if title and title ~= "" then
-                table.insert(results, {
-                    fiction_id = fiction_id,
-                    title      = title,
-                    author     = author or "",
-                    chapters   = chapters or "?",
-                    tags       = tags,
-                    rating     = rating,
-                    status     = status,
-                    word_count = word_count,
-                })
-            end
-        end
-            if #results >= C.SEARCH.MAX_RESULTS then break end
-    end
-
-    return results
-end
-
-local SORT_MODES = {
-    { key = "default",    label = _("Default") },
-    { key = "title",      label = _("Title A-Z") },
-    { key = "rating",     label = _("Rating ↓") },
-    { key = "wordcount",  label = _("Words ↓") },
-    { key = "chapters",   label = _("Chapters ↓") },
-}
-
-local function sortResults(results, mode)
-    local sorted = {}
-    for _, r in ipairs(results) do table.insert(sorted, r) end
-    if mode == "title" then
-        table.sort(sorted, function(a, b) return (a.title or "") < (b.title or "") end)
-    elseif mode == "rating" then
-        table.sort(sorted, function(a, b)
-            return (tonumber(a.rating) or 0) > (tonumber(b.rating) or 0)
-        end)
-    elseif mode == "wordcount" then
-        table.sort(sorted, function(a, b)
-            return (tonumber(a.word_count) or 0) > (tonumber(b.word_count) or 0)
-        end)
-    elseif mode == "chapters" then
-        table.sort(sorted, function(a, b)
-            return (tonumber(a.chapters) or 0) > (tonumber(b.chapters) or 0)
-        end)
-    end
-    return sorted
 end
 
 function M:showSearchResults(query, results, page, sort_mode)

@@ -15,6 +15,8 @@ local RoyalRoadDownloader = WidgetContainer:extend{
 }
 
 local module_names = {
+    "royalroad/http",
+    "royalroad/parser",
     "royalroad/menu",
     "royalroad/downloads_ui",
     "royalroad/batch_ui",
