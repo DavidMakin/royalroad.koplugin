@@ -367,7 +367,7 @@ function M:manageDownloads()
             end
         end
 
-        local filter_suffix = (filter_text ~= "") and T(_(" [filter: %1]"), filter_text) or ""
+        local filter_suffix = (filter_text ~= "") and (" [filter: " .. filter_text .. "]") or ""
         local menu
         menu = StoryMosaicMenu:new{
             covers_fullscreen       = true,
