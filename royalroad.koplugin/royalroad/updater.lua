@@ -37,17 +37,24 @@ function M:_computeStoryUpdate(fiction_id, story)
     local stored_count = #(story.chapter_urls or {})
     local current_count = #current_urls
 
-    if current_count <= stored_count then return nil, false end
+    local fetched_set = {}
+    for _, u in ipairs(story.chapter_urls or {}) do fetched_set[u] = true end
 
     local known_set = {}
-    for _, u in ipairs(story.chapter_urls or {}) do known_set[u] = true end
+    for u in pairs(fetched_set) do known_set[u] = true end
     for _, u in ipairs(story.queued_chapter_urls or {}) do known_set[u] = true end
+
     local new_chapters = 0
     for _, u in ipairs(current_urls) do
         if not known_set[u] then new_chapters = new_chapters + 1 end
     end
 
-    if new_chapters == 0 and current_count <= (story.partial_of or stored_count) then
+    local missing_from_epub = 0
+    for _, u in ipairs(story.queued_chapter_urls or {}) do
+        if not fetched_set[u] then missing_from_epub = missing_from_epub + 1 end
+    end
+
+    if new_chapters == 0 and missing_from_epub == 0 then
         return nil, false
     end
 
@@ -56,7 +63,7 @@ function M:_computeStoryUpdate(fiction_id, story)
         title         = story.title,
         stored_count  = stored_count,
         current_count = current_count,
-        new_chapters  = new_chapters > 0 and new_chapters or (current_count - stored_count),
+        new_chapters  = new_chapters + missing_from_epub,
         current_urls  = current_urls,
     }, false
 end
