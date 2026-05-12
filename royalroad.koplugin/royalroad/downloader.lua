@@ -160,32 +160,47 @@ function M:processFiction(fiction_id)
         if self.downloaded_stories[fiction_id] then
             local story = self.downloaded_stories[fiction_id]
             local already_dialog
+            local buttons = {}
+
+            if story.queued_chapter_urls and #story.queued_chapter_urls > #(story.chapter_urls or {}) then
+                local remaining = #story.queued_chapter_urls - #(story.chapter_urls or {})
+                table.insert(buttons, {{
+                    text = T(_("Resume (%1 chapters left)"), remaining),
+                    callback = function()
+                        UIManager:close(already_dialog)
+                        UIManager:scheduleIn(SCHEDULE_DELAY, function()
+                            self:resumeDownload(fiction_id)
+                        end)
+                    end,
+                }})
+            end
+
+            table.insert(buttons, {{
+                text = _("Check for updates"),
+                callback = function()
+                    UIManager:close(already_dialog)
+                    UIManager:scheduleIn(SCHEDULE_DELAY, function()
+                        self:checkSingleStoryForUpdates(fiction_id)
+                    end)
+                end,
+            }})
+            table.insert(buttons, {{
+                text = _("Re-download"),
+                callback = function()
+                    UIManager:close(already_dialog)
+                    UIManager:scheduleIn(SCHEDULE_DELAY, function()
+                        self:deleteAndRedownload(fiction_id)
+                    end)
+                end,
+            }})
+            table.insert(buttons, {{
+                text = _("Cancel"),
+                callback = function() UIManager:close(already_dialog) end,
+            }})
+
             already_dialog = ButtonDialog:new{
-                title = T(_("%1\nalready downloaded."), story.title or fiction_id),
-                buttons = {
-                    {{
-                        text = _("Check for updates"),
-                        callback = function()
-                            UIManager:close(already_dialog)
-                            UIManager:scheduleIn(SCHEDULE_DELAY, function()
-                                self:checkSingleStoryForUpdates(fiction_id)
-                            end)
-                        end,
-                    }},
-                    {{
-                        text = _("Re-download"),
-                        callback = function()
-                            UIManager:close(already_dialog)
-                            UIManager:scheduleIn(SCHEDULE_DELAY, function()
-                                self:deleteAndRedownload(fiction_id)
-                            end)
-                        end,
-                    }},
-                    {{
-                        text = _("Cancel"),
-                        callback = function() UIManager:close(already_dialog) end,
-                    }},
-                },
+                title   = T(_("%1\nalready downloaded."), story.title or fiction_id),
+                buttons = buttons,
             }
             UIManager:show(already_dialog)
             return
@@ -211,6 +226,33 @@ function M:processFiction(fiction_id)
 
         self:showChapterRangeDialog(fiction_id, data.story_title, data.author, chapter_urls, data.cover_image, data.cover_url, total_available)
     end)
+end
+
+function M:resumeDownload(fiction_id)
+    local story = self.downloaded_stories[fiction_id]
+    if not story or not story.queued_chapter_urls then return end
+
+    local fetched_set = {}
+    for _, u in ipairs(story.chapter_urls or {}) do fetched_set[u] = true end
+    local remaining_urls = {}
+    for _, u in ipairs(story.queued_chapter_urls) do
+        if not fetched_set[u] then
+            table.insert(remaining_urls, u)
+        end
+    end
+
+    if #remaining_urls == 0 then
+        story.queued_chapter_urls = nil
+        self:saveSettings()
+        UIManager:show(InfoMessage:new{
+            text    = _("Nothing left to resume."),
+            timeout = 3,
+        })
+        return
+    end
+
+    logger.info("Royal Road: Resuming download of", #remaining_urls, "chapters for", story.title)
+    self:updateStory(fiction_id, story.queued_chapter_urls)
 end
 
 function M:processFictionAll(fiction_id)
