@@ -41,7 +41,7 @@ function M:_computeStoryUpdate(fiction_id, story)
     for _, u in ipairs(story.chapter_urls or {}) do fetched_set[u] = true end
 
     local known_set = {}
-    for u in pairs(fetched_set) do known_set[u] = true end
+    for _, u in ipairs(story.chapter_urls or {}) do known_set[u] = true end
     for _, u in ipairs(story.queued_chapter_urls or {}) do known_set[u] = true end
 
     local new_chapters = 0
