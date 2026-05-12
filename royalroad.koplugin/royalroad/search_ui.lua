@@ -13,6 +13,14 @@ local M = {}
 
 local C = require("royalroad/constants")
 
+local SORT_MODES = {
+    { key = "default",   label = _("Default") },
+    { key = "title",     label = _("Title A-Z") },
+    { key = "rating",    label = _("Rating ↓") },
+    { key = "wordcount", label = _("Words ↓") },
+    { key = "chapters",  label = _("Chapters ↓") },
+}
+
 local function sortResults(results, mode)
     local sorted = {}
     for _, r in ipairs(results) do table.insert(sorted, r) end
