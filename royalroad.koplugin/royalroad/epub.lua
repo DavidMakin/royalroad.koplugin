@@ -257,7 +257,7 @@ function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
     table.insert(manifest_items, '    <item id="css-default" href="ReadiumCSS-default.css" media-type="text/css"/>')
     table.insert(manifest_items, '    <item id="css-after" href="ReadiumCSS-after.css" media-type="text/css"/>')
 
-    return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks
+    return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, first_chapter_file
 end
 
 function M:_buildOPF(fiction_id, book_id, escaped_title, escaped_author, cover_image,
@@ -397,7 +397,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 </container>]]
         epub:addFileFromMemory("META-INF/container.xml", container_xml)
 
-        local manifest_items, spine_items, nav_points, nav_entries, nav_landmarks =
+        local manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, _first_chapter_file =
             self:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
 
         epub:addFileFromMemory("content.opf",
