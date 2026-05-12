@@ -340,8 +340,8 @@ function M:_addChapters(epub, chapters)
     for i, chapter in ipairs(chapters) do
         local esc_ch        = self:escapeXML(chapter.title)
         local chapter_content = (chapter.content or "")
-        chapter_content = chapter_content:gsub("<br>", "<br/>")
-        chapter_content = chapter_content:gsub("<hr>", "<hr/>")
+        chapter_content = chapter_content:gsub("<br([^>]*)>", "<br%1/>")
+        chapter_content = chapter_content:gsub("<hr([^>]*)>", "<hr%1/>")
         chapter_content = chapter_content:gsub("<img([^>]-)>", "<img%1/>")
         chapter_content = chapter_content:gsub("<input([^>]-)>", "<input%1/>")
         local chapter_xhtml = string.format([[<?xml version="1.0" encoding="UTF-8"?>
