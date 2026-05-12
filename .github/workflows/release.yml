@@ -55,41 +55,28 @@ jobs:
         id: changelog
         run: |
           PREV="${{ steps.prevtag.outputs.tag }}"
-          if [ -z "${PREV}" ]; then
-            RANGE="${GITHUB_REF_NAME}"
-          else
-            RANGE="${PREV}..${GITHUB_REF_NAME}"
-          fi
+          RANGE="${PREV:+${PREV}..}${GITHUB_REF_NAME}"
 
-          features=""
-          fixes=""
-          maintenance=""
+          git log "${RANGE}" --pretty=format:"%s" --no-merges \
+            | grep -v "^chore: set version" > /tmp/commits.txt || true
 
-          while IFS= read -r line; do
-            case "${line}" in
-              "feat"*) features="${features}- ${line}"$'\n' ;;
-              "fix"*)  fixes="${fixes}- ${line}"$'\n' ;;
-              "chore: set version"*) ;;
-              *) maintenance="${maintenance}- ${line}"$'\n' ;;
-            esac
-          done < <(git log "${RANGE}" --pretty=format:"%s" | grep -v '^Merge ')
-
-          body=""
-          if [ -n "${features}" ]; then
-            body="${body}## 🚀 Features"$'\n'"${features}"$'\n'
-          fi
-          if [ -n "${fixes}" ]; then
-            body="${body}## 🐛 Bug Fixes"$'\n'"${fixes}"$'\n'
-          fi
-          if [ -n "${maintenance}" ]; then
-            body="${body}## 🧰 Maintenance"$'\n'"${maintenance}"$'\n'
-          fi
+          FEATURES=$(grep "^feat" /tmp/commits.txt | sed "s/^/- /" || true)
+          FIXES=$(grep "^fix" /tmp/commits.txt | sed "s/^/- /" || true)
+          MAINTENANCE=$(grep -Ev "^feat|^fix|^chore|^ci:|^build:|^style:" /tmp/commits.txt | sed "s/^/- /" || true)
 
           {
-            echo "changelog<<EOF"
-            echo "${body}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+            echo "changelog<<CHANGELOG_EOF"
+            if [ -n "${FEATURES}" ]; then
+              printf "## 🚀 Features\n%s\n\n" "${FEATURES}"
+            fi
+            if [ -n "${FIXES}" ]; then
+              printf "## 🐛 Bug Fixes\n%s\n\n" "${FIXES}"
+            fi
+            if [ -n "${MAINTENANCE}" ]; then
+              printf "## 🧰 Maintenance\n%s\n\n" "${MAINTENANCE}"
+            fi
+            echo "CHANGELOG_EOF"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
