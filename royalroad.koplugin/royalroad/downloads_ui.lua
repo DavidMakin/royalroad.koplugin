@@ -26,7 +26,7 @@ local GRID_ROW_GAP       = widgets.GRID_ROW_GAP
 
 local M = {}
 
-function M:manageDownloads()
+function M:_buildManageItemTable()
     self._last_read_cache = nil
     local filter_text = self._manage_filter or ""
 
@@ -93,6 +93,22 @@ function M:manageDownloads()
         })
     end
 
+    return item_table
+end
+
+function M:refreshManageMenu()
+    if not self.manage_menu then
+        self:manageDownloads()
+        return
+    end
+    local item_table = self:_buildManageItemTable()
+    self.manage_menu.item_table = item_table
+    self.manage_menu:updateItems()
+end
+
+function M:manageDownloads()
+    local item_table = self:_buildManageItemTable()
+
     local item_height = STORY_COVER_HEIGHT + STORY_ITEM_PAD * 2
     local downloader  = self
 
@@ -116,8 +132,7 @@ function M:manageDownloads()
                         callback = function()
                             UIManager:close(search_dialog)
                             downloader._manage_filter = ""
-                            UIManager:close(current_menu)
-                            downloader:manageDownloads()
+                            downloader:refreshManageMenu()
                         end,
                     },
                     {
@@ -127,8 +142,7 @@ function M:manageDownloads()
                             local q = search_dialog:getInputText()
                             UIManager:close(search_dialog)
                             downloader._manage_filter = q
-                            UIManager:close(current_menu)
-                            downloader:manageDownloads()
+                            downloader:refreshManageMenu()
                         end,
                     },
                 },
@@ -150,11 +164,11 @@ function M:manageDownloads()
             shrink_unneeded_width = true,
             anchor = anchor,
             buttons = {
-                {{ text = lbl("title",    _("Title")),        align = "left", callback = function() downloader.manage_sort_mode = "title"    closeAndRefresh(d, menu) end }},
-                {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() downloader.manage_sort_mode = "date"     closeAndRefresh(d, menu) end }},
-                {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() downloader.manage_sort_mode = "updated"  closeAndRefresh(d, menu) end }},
-                {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() downloader.manage_sort_mode = "lastread" closeAndRefresh(d, menu) end }},
-                {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() downloader.manage_sort_mode = "chapters" closeAndRefresh(d, menu) end }},
+                {{ text = lbl("title",    _("Title")),        align = "left", callback = function() downloader.manage_sort_mode = "title"    UIManager:close(d) downloader:refreshManageMenu() end }},
+                {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() downloader.manage_sort_mode = "date"     UIManager:close(d) downloader:refreshManageMenu() end }},
+                {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() downloader.manage_sort_mode = "updated"  UIManager:close(d) downloader:refreshManageMenu() end }},
+                {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() downloader.manage_sort_mode = "lastread" UIManager:close(d) downloader:refreshManageMenu() end }},
+                {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() downloader.manage_sort_mode = "chapters" UIManager:close(d) downloader:refreshManageMenu() end }},
             },
         }
         UIManager:show(d)
