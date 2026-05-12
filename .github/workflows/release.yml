@@ -79,9 +79,17 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
-        with:
-          files: royalroad.koplugin.zip
-          draft: false
-          prerelease: false
-          body: ${{ steps.changelog.outputs.changelog }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES="${{ steps.changelog.outputs.changelog }}"
+          if gh release view "${GITHUB_REF_NAME}" &>/dev/null; then
+            gh release edit "${GITHUB_REF_NAME}" \
+              --notes "${NOTES}"
+            gh release upload "${GITHUB_REF_NAME}" royalroad.koplugin.zip --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --notes "${NOTES}" \
+              royalroad.koplugin.zip
+          fi
