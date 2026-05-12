@@ -429,6 +429,7 @@ function M:deleteAndRedownload(fiction_id)
                 ffiUtil.purgeDir(sdr_path)
             end
 
+            self:_invalidateCoverCache(fiction_id)
             self.downloaded_stories[fiction_id] = nil
             self:_invalidateStoryCount()
             self:saveSettings()
