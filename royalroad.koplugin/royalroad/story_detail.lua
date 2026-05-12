@@ -335,38 +335,24 @@ function M:checkSingleStoryForUpdates(fiction_id)
     UIManager:show(checking_msg)
 
     UIManager:scheduleIn(0.1, function()
-        local story_url = C.BASE_URL .. "/fiction/" .. fiction_id
-        local story_html = self:fetchPageCached(story_url)
+        local update, fetch_failed = self:_computeStoryUpdate(fiction_id, story)
 
         UIManager:close(checking_msg)
         UIManager:close(self.story_detail_dialog)
         UIManager:setDirty(nil, "ui")
 
-        if not story_html then
+        if fetch_failed then
             UIManager:show(InfoMessage:new{
                 text = _("Failed to fetch story page."),
             })
             return
         end
 
-        local current_urls = self:extractChapterURLs(story_html, fiction_id)
-        local stored_count = #(story.chapter_urls or {})
-        local current_count = #current_urls
-
-        if current_count > stored_count then
-            local new_chapters = current_count - stored_count
-            local stories_with_updates = {{
-                fiction_id = fiction_id,
-                title = story.title,
-                stored_count = stored_count,
-                current_count = current_count,
-                new_chapters = new_chapters,
-                current_urls = current_urls,
-            }}
-            self:showUpdateMenu(stories_with_updates)
+        if update then
+            self:showUpdateMenu({ update })
         else
             UIManager:show(InfoMessage:new{
-                text = T(_("%1 is up to date!\n\n%2 chapters"), story.title, stored_count),
+                text = T(_("%1 is up to date!\n\n%2 chapters"), story.title, #(story.chapter_urls or {})),
             })
         end
     end)
