@@ -149,9 +149,10 @@ function M:showStoryOptions(fiction_id)
         fgcolor = Blitbuffer.COLOR_DARK_GRAY,
     })
     if story.last_chapter_date and story.last_chapter_date ~= "" then
+        local lcd = story.last_chapter_date:match("^(%d+%-%d+%-%d+)") or story.last_chapter_date
         table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
         table.insert(meta_group, TextWidget:new{
-            text    = T(_("Last chapter: %1"), story.last_chapter_date),
+            text    = T(_("Last chapter: %1"), lcd),
             face    = Font:getFace("smallffont"),
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })
