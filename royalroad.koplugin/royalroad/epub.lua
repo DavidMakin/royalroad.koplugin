@@ -491,6 +491,11 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         self:saveSettings()
         logger.info("Royal Road: Saved metadata for story", fiction_id, "with", #(chapter_urls or {}), "chapters")
 
+        local FileManager = require("apps/filemanager/filemanager")
+        if FileManager.instance then
+            FileManager.instance:onRefresh()
+        end
+
         if not silent then
             UIManager:show(InfoMessage:new{
                 text = T(_("Saved EPUB:\n%1\n\n%2 chapters"), filename, #chapters),
