@@ -130,6 +130,26 @@ function M:manageDownloads()
 
     local ButtonDialog = require("ui/widget/buttondialog")
 
+    local function open_sort(anchor, menu)
+        local cur = downloader.manage_sort_mode or "title"
+        local function lbl(mode, label)
+            return (cur == mode and "✓ " or "    ") .. label
+        end
+        local d
+        d = ButtonDialog:new{
+            shrink_unneeded_width = true,
+            anchor = anchor,
+            buttons = {
+                {{ text = lbl("title",    _("Title")),        align = "left", callback = function() downloader.manage_sort_mode = "title"    closeAndRefresh(d, menu) end }},
+                {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() downloader.manage_sort_mode = "date"     closeAndRefresh(d, menu) end }},
+                {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() downloader.manage_sort_mode = "updated"  closeAndRefresh(d, menu) end }},
+                {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() downloader.manage_sort_mode = "lastread" closeAndRefresh(d, menu) end }},
+                {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() downloader.manage_sort_mode = "chapters" closeAndRefresh(d, menu) end }},
+            },
+        }
+        UIManager:show(d)
+    end
+
     local StoryMenuBase = Menu:extend{
         _items_pending = {},
     }
@@ -331,26 +351,6 @@ function M:manageDownloads()
             onLeftButtonTap         = function()
                 local function anchor() return menu.title_bar.left_button.image.dimen end
 
-                local function open_sort()
-                    local cur = downloader.manage_sort_mode or "title"
-                    local function lbl(mode, label)
-                        return (cur == mode and "✓ " or "    ") .. label
-                    end
-                    local d
-                    d = ButtonDialog:new{
-                        shrink_unneeded_width = true,
-                        anchor = anchor,
-                        buttons = {
-                            {{ text = lbl("title",    _("Title")),        align = "left", callback = function() downloader.manage_sort_mode = "title"    closeAndRefresh(d, menu) end }},
-                            {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() downloader.manage_sort_mode = "date"     closeAndRefresh(d, menu) end }},
-                            {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() downloader.manage_sort_mode = "updated"  closeAndRefresh(d, menu) end }},
-                            {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() downloader.manage_sort_mode = "lastread" closeAndRefresh(d, menu) end }},
-                            {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() downloader.manage_sort_mode = "chapters" closeAndRefresh(d, menu) end }},
-                        },
-                    }
-                    UIManager:show(d)
-                end
-
                 local function open_grid()
                     local DoubleSpinWidget = require("ui/widget/doublespinwidget")
                     local orig_cols = downloader.mosaic_cols or 3
@@ -387,7 +387,7 @@ function M:manageDownloads()
                     anchor = anchor,
                     buttons = {
                         {{ text = "\u{2261} " .. _("Switch to list view"),     align = "left", callback = function() downloader.manage_view_mode = "list" closeAndRefresh(view_dialog, menu) end }},
-                        {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
+                        {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort(anchor, menu) end }},
                         {{ text = "\u{229E} " .. _("Grid size…"),              align = "left", callback = function() UIManager:close(view_dialog) open_grid() end }},
                         {{ text = (downloader.mosaic_hide_title and "✓ " or "○ ") .. _("Hide titles"),  align = "left", callback = function()
                             downloader.mosaic_hide_title = not downloader.mosaic_hide_title
@@ -500,35 +500,15 @@ function M:manageDownloads()
         title_bar_fm_style      = true,
         title_bar_left_icon     = "appbar.menu",
         onLeftButtonTap         = function()
-            local function anchor() return menu.title_bar.left_button.image.dimen end
+                local function anchor() return menu.title_bar.left_button.image.dimen end
 
-            local function open_sort()
-                local cur = downloader.manage_sort_mode or "title"
-                local function lbl(mode, label)
-                    return (cur == mode and "✓ " or "    ") .. label
-                end
-                local d
-                d = ButtonDialog:new{
-                    shrink_unneeded_width = true,
-                    anchor = anchor,
-                    buttons = {
-                        {{ text = lbl("title",    _("Title")),        align = "left", callback = function() downloader.manage_sort_mode = "title"    closeAndRefresh(d, menu) end }},
-                        {{ text = lbl("date",     _("Date added")),   align = "left", callback = function() downloader.manage_sort_mode = "date"     closeAndRefresh(d, menu) end }},
-                        {{ text = lbl("updated",  _("Last updated")), align = "left", callback = function() downloader.manage_sort_mode = "updated"  closeAndRefresh(d, menu) end }},
-                        {{ text = lbl("lastread", _("Last read")),    align = "left", callback = function() downloader.manage_sort_mode = "lastread" closeAndRefresh(d, menu) end }},
-                        {{ text = lbl("chapters", _("Chapters")),     align = "left", callback = function() downloader.manage_sort_mode = "chapters" closeAndRefresh(d, menu) end }},
-                    },
-                }
-                UIManager:show(d)
-            end
-
-            local view_dialog
+                local view_dialog
             view_dialog = ButtonDialog:new{
                 shrink_unneeded_width = true,
                 anchor = anchor,
                 buttons = {
                     {{ text = "\u{25A6} " .. _("Switch to mosaic view"),   align = "left", callback = function() downloader.manage_view_mode = "mosaic" closeAndRefresh(view_dialog, menu) end }},
-                    {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort() end }},
+                    {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort(anchor, menu) end }},
                     {},
                     {{ text = "\u{2193} " .. _("Download story"),          align = "left", callback = function() UIManager:close(view_dialog) downloader:downloadStory() end }},
                     {{ text = "\u{2315} " .. _("Search Royal Road"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:searchStories() end }},
