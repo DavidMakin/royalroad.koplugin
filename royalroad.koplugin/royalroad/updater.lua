@@ -714,6 +714,19 @@ function M:downloadNextNewChapter(state, i)
     local full_url = state.new_urls[i]
 
     UIManager:scheduleIn(SCHEDULE_DELAY, function()
+        if state.cancelled or (state.batch and state.batch.cancelled()) then
+            if not state.batch then
+                UIManager:close(state.progress_dialog)
+                UIManager:setDirty(nil, "ui")
+                self:allowScreenSleep()
+                UIManager:show(InfoMessage:new{
+                    text    = _("Update cancelled."),
+                    timeout = 3,
+                })
+            end
+            if state.on_complete then state.on_complete() end
+            return
+        end
         local chapter_html = self:fetchPage(full_url)
         if chapter_html then
             local title = self:extractChapterTitle(chapter_html)
@@ -740,7 +753,9 @@ function M:downloadNextNewChapter(state, i)
         end
 
         UIManager:scheduleIn(self.rate_limit_delay, function()
-            self:downloadNextNewChapter(state, i + 1)
+            if not (state.cancelled or (state.batch and state.batch.cancelled())) then
+                self:downloadNextNewChapter(state, i + 1)
+            end
         end)
     end)
 end
