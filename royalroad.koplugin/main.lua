@@ -117,6 +117,17 @@ function RoyalRoadDownloader:saveSettings()
     self.settings:saveSetting("mosaic_rows",       self.mosaic_rows)
     self.settings:saveSetting("mosaic_hide_title", self.mosaic_hide_title)
     self.settings:flush()
+    self._save_pending = false
+end
+
+function RoyalRoadDownloader:saveSettingsDebounced()
+    if self._save_pending then return end
+    self._save_pending = true
+    UIManager:scheduleIn(0.4, function()
+        if self._save_pending then
+            self:saveSettings()
+        end
+    end)
 end
 
 function RoyalRoadDownloader:countDownloadedStories()

@@ -784,7 +784,7 @@ function M:rebuildEPUBWithNewChapters(state)
         entry.partial_of          = nil
         entry.queued_chapter_urls = nil
         entry.unread_new_count = (entry.unread_new_count or 0) + #state.new_chapters
-        self:saveSettings()
+        self:saveSettingsDebounced()
     end
 
     self:_invalidateCoverCache(state.fiction_id)

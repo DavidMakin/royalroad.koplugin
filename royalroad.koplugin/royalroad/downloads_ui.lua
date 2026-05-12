@@ -115,7 +115,7 @@ function M:manageDownloads()
     local function closeAndRefresh(dialog1, dialog2)
         if dialog1 then UIManager:close(dialog1) end
         if dialog2 then UIManager:close(dialog2) end
-        downloader:saveSettings()
+        downloader:saveSettingsDebounced()
         downloader:manageDownloads()
     end
 
