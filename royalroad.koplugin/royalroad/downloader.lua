@@ -387,6 +387,9 @@ end
 function M:_onDownloadComplete()
     self._download_active = false
     self._page_cache = nil
+    if self.manage_menu then
+        self:refreshManageMenu()
+    end
     if self._download_queue and #self._download_queue > 0 then
         UIManager:scheduleIn(1, function() self:_processDownloadQueue() end)
     end
