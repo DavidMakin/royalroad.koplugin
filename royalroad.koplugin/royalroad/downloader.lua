@@ -427,7 +427,13 @@ function M:fetchPage(page_url)
             return table.concat(response_body)
         end
 
-        logger.warn("Royal Road: HTTP", code, status, "attempt", attempt + 1, "url", page_url)
+        if code == 429 then
+            local backoff = C.NETWORK.RATE_LIMIT_BACKOFF * (attempt + 1)
+            logger.warn("Royal Road: HTTP 429 rate-limited, backing off", backoff, "s (attempt", attempt + 1, ")")
+            socket.sleep(backoff)
+        else
+            logger.warn("Royal Road: HTTP", code, status, "attempt", attempt + 1, "url", page_url)
+        end
     end
     return nil
 end

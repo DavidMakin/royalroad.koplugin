@@ -8,13 +8,14 @@ return {
     },
 
     NETWORK = {
-        SCHEDULE_DELAY     = 0.1,
-        YIELD_DELAY        = 0.01,
+        SCHEDULE_DELAY      = 0.1,
+        YIELD_DELAY         = 0.01,
         -- Page cache is per-URL and shared across all callers within a session.
         -- A story page fetched for update-checking will satisfy a subsequent
         -- fetchPageCached call for the same URL within this window.
-        PAGE_CACHE_TTL     = 300,
-        DEFAULT_RATE_LIMIT = 1.5,
+        PAGE_CACHE_TTL      = 300,
+        DEFAULT_RATE_LIMIT  = 1.5,
+        RATE_LIMIT_BACKOFF  = 30,
     },
 
     CACHE = {
