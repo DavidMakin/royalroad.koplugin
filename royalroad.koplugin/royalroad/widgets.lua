@@ -12,6 +12,7 @@ local RenderText     = require("ui/rendertext")
 local Size           = require("ui/size")
 local TextBoxWidget  = require("ui/widget/textboxwidget")
 local TextWidget     = require("ui/widget/textwidget")
+local TopContainer   = require("ui/widget/container/topcontainer")
 local UIManager      = require("ui/uimanager")
 local VerticalGroup  = require("ui/widget/verticalgroup")
 local VerticalSpan   = require("ui/widget/verticalspan")
@@ -129,7 +130,6 @@ function StoryListItem:init()
         })
     end
 
-    local TopContainer = require("ui/widget/container/topcontainer")
     local bg = self.story.missing and Blitbuffer.gray(0.8) or Blitbuffer.COLOR_WHITE
     self[1] = FrameContainer:new{
         width      = self.width,
