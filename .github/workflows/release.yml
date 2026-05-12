@@ -85,6 +85,7 @@ jobs:
           NOTES="${{ steps.changelog.outputs.changelog }}"
           if gh release view "${GITHUB_REF_NAME}" &>/dev/null; then
             gh release edit "${GITHUB_REF_NAME}" \
+              --draft=false \
               --notes "${NOTES}"
             gh release upload "${GITHUB_REF_NAME}" royalroad.koplugin.zip --clobber
           else
