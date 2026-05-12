@@ -200,24 +200,23 @@ function M:showSettings()
         covers_fullscreen = true,
         is_borderless     = true,
         is_popout         = false,
-        close_callback    = function()
-            UIManager:scheduleIn(0, function()
-                if settings_menu == nil then return end
-                local still_shown = false
-                for _, w in ipairs(UIManager._window_stack or {}) do
-                    if w.widget == settings_menu then still_shown = true; break end
-                end
-                if still_shown then return end
-                self._settings_menu = nil
-                settings_menu = nil
-                if self._settings_view_dirty then
-                    self._settings_view_dirty = nil
-                    if self.manage_menu then UIManager:close(self.manage_menu) end
-                    self:manageDownloads()
-                end
-            end)
-        end,
     }
+    -- Use onClose (fires only when THIS widget is truly removed from UIManager,
+    -- not when sub-dialogs open on top) to avoid accessing UIManager._window_stack.
+    local downloader = self
+    local _parent_onClose = settings_menu.onClose
+    settings_menu.onClose = function(s)
+        downloader._settings_menu = nil
+        settings_menu = nil
+        if downloader._settings_view_dirty then
+            downloader._settings_view_dirty = nil
+            UIManager:scheduleIn(0, function()
+                if downloader.manage_menu then UIManager:close(downloader.manage_menu) end
+                downloader:manageDownloads()
+            end)
+        end
+        if _parent_onClose then _parent_onClose(s) end
+    end
     self._settings_menu = settings_menu
     UIManager:show(self._settings_menu)
 end
