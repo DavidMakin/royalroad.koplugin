@@ -2,7 +2,11 @@
 
 Download web fiction from [Royal Road](https://www.royalroad.com/) directly to your e-reader as EPUB files, ready to read offline.
 
-<img src="docs/screenshots/main_screen.png" width="300" alt="Plugin main screen">
+<table><tr>
+<td align="center"><img src="docs/screenshots/search_results.png" width="260" alt="Search results"><br><sub><b>Search stories</b></sub></td>
+<td align="center"><img src="docs/screenshots/main_screen.png" width="260" alt="Your library"><br><sub><b>Your library</b></sub></td>
+<td align="center"><img src="docs/screenshots/update_dialog.png" width="260" alt="Check for updates"><br><sub><b>Check for updates</b></sub></td>
+</tr></table>
 
 ---
 
@@ -48,11 +52,11 @@ Royal Road hosts thousands of free web novels. This plugin lets you download any
 
 Open the plugin via **Tools → Royal Road** to see all options.
 
-<img src="docs/screenshots/menu.png" width="300" alt="Menu options">
+<img src="docs/screenshots/menu.png" width="300" alt="Menu options"><br><sub><b>Plugin menu</b></sub>
 
 Search for a story by tapping **Search** and typing a title or author name. Results show rating, chapter count, and word count so you can judge a story before downloading.
 
-<img src="docs/screenshots/search_results.png" width="300" alt="Search results">
+<img src="docs/screenshots/search_results.png" width="300" alt="Search results"><br><sub><b>Search results</b></sub>
 
 Tap a result to see the full description, then tap **Download** to start.
 
@@ -72,7 +76,7 @@ Go to **Tools → Royal Road → Download story**, enter the ID, and tap Downloa
 
 **Tools → Royal Road → My downloads** shows all your downloaded stories with cover images.
 
-<img src="docs/screenshots/downloads.png" width="300" alt="Downloads screen">
+<img src="docs/screenshots/downloads.png" width="300" alt="Downloads screen"><br><sub><b>My downloads</b></sub>
 
 From here you can:
 - Open a story to read it
@@ -82,13 +86,13 @@ From here you can:
 
 Tap a story to see per-story options.
 
-<img src="docs/screenshots/story_menu.png" width="300" alt="Story options menu">
+<img src="docs/screenshots/story_menu.png" width="300" alt="Story options menu"><br><sub><b>Story options</b></sub>
 
 ### Updating stories
 
 Tap **Check for updates** to scan all your downloaded stories for new chapters. Stories with updates are listed — tap **Update** to download the new chapters and merge them into the existing EPUB. Your reading position and bookmarks are preserved.
 
-<img src="docs/screenshots/update_dialog.png" width="300" alt="Update dialog">
+<img src="docs/screenshots/update_dialog.png" width="300" alt="Update dialog"><br><sub><b>Update dialog</b></sub>
 
 Interrupted or partial downloads are also detected and resumed automatically.
 
