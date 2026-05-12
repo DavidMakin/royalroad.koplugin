@@ -15,6 +15,7 @@ local T               = require("ffi/util").template
 local _               = require("gettext")
 
 local widgets = require("royalroad/widgets")
+local sorting  = require("royalroad/sorting")
 local StoryListItem    = widgets.StoryListItem
 local StoryCoverCell   = widgets.StoryCoverCell
 local STORY_COVER_HEIGHT = widgets.STORY_COVER_HEIGHT
@@ -47,40 +48,23 @@ function M:_buildManageItemTable()
         end
     end
     local sort_mode = self.manage_sort_mode or "title"
-    if sort_mode == "date" then
-        table.sort(item_table, function(a, b)
-            return (a.download_date or 0) > (b.download_date or 0)
-        end)
-    elseif sort_mode == "chapters" then
-        table.sort(item_table, function(a, b)
-            return #(a.chapter_urls or {}) > #(b.chapter_urls or {})
-        end)
-    elseif sort_mode == "lastread" then
-        local function last_read_time(story)
-            if story.epub_path then
-                local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
-                if ok and ds and ds.data then
-                    return ds.data.last_read_time or (ds.data.last_xpointer and 1 or 0)
-                end
+    local last_read_cache = self._last_read_cache or {}
+    self._last_read_cache = last_read_cache
+    local function last_read_time(story)
+        if story.epub_path then
+            local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
+            if ok and ds and ds.data then
+                return ds.data.last_read_time or (ds.data.last_xpointer and 1 or 0)
             end
-            return 0
         end
-        self._last_read_cache = self._last_read_cache or {}
-        local cache = self._last_read_cache
-        table.sort(item_table, function(a, b)
-            if cache[a.fiction_id] == nil then cache[a.fiction_id] = last_read_time(a) end
-            if cache[b.fiction_id] == nil then cache[b.fiction_id] = last_read_time(b) end
-            return cache[a.fiction_id] > cache[b.fiction_id]
-        end)
-    elseif sort_mode == "updated" then
-        table.sort(item_table, function(a, b)
-            return (a.last_update or a.download_date or 0) > (b.last_update or b.download_date or 0)
-        end)
-    else
-        table.sort(item_table, function(a, b)
-            return (a.title or "") < (b.title or "")
-        end)
+        return 0
     end
+    sorting.sortDownloads(item_table, sort_mode, function(story)
+        if last_read_cache[story.fiction_id] == nil then
+            last_read_cache[story.fiction_id] = last_read_time(story)
+        end
+        return last_read_cache[story.fiction_id]
+    end)
 
     if #item_table == 0 then
         local hint_text = _("No stories yet — tap ☰ to download your first story")
