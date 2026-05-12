@@ -155,13 +155,24 @@ function M:batchUpdate(selected)
                 })
                 return
             end
-            UIManager:show(InfoMessage:new{
-                text = summary,
-                timeout = 4,
-            })
-            UIManager:scheduleIn(4.2, function()
-                self:showUpdateMenu(stories_with_updates)
-            end)
+            local summary_dialog
+            summary_dialog = ButtonDialog:new{
+                title   = summary,
+                buttons = {
+                    {{
+                        text     = _("Update"),
+                        callback = function()
+                            UIManager:close(summary_dialog)
+                            self:showUpdateMenu(stories_with_updates)
+                        end,
+                    }},
+                    {{
+                        text     = _("Dismiss"),
+                        callback = function() UIManager:close(summary_dialog) end,
+                    }},
+                },
+            }
+            UIManager:show(summary_dialog)
             return
         end
 
