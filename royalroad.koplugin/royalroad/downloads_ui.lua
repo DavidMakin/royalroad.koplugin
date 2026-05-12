@@ -83,6 +83,14 @@ function M:manageDownloads()
         end)
     end
 
+    if #item_table == 0 then
+        table.insert(item_table, {
+            is_hint  = true,
+            text     = _("No stories yet — tap ☰ to download your first story"),
+            fiction_id = nil,
+        })
+    end
+
     local item_height = STORY_COVER_HEIGHT + STORY_ITEM_PAD * 2
     local downloader  = self
 
@@ -184,10 +192,15 @@ function M:manageDownloads()
     end
 
     function StoryMenuBase:onStorySelect(story)
+        if story.is_hint then
+            downloader:downloadStory()
+            return
+        end
         downloader:showStoryOptions(story.fiction_id)
     end
 
     function StoryMenuBase:onStoryHold(story)
+        if story.is_hint then return end
         local TitleBar        = require("ui/widget/titlebar")
         local ButtonTable     = require("ui/widget/buttontable")
         local FrameContainer  = require("ui/widget/container/framecontainer")
