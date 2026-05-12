@@ -135,22 +135,18 @@ function M:showSearchResults(query, results, page, sort_mode)
 
     local item_table = {}
     for _, r in ipairs(sorted) do
-        local sub = r.status and ("[" .. r.status .. "] ") or ""
-        sub = sub .. (r.author ~= "" and (r.author .. " - " .. r.chapters .. " ch") or (r.chapters .. " ch"))
-        if r.tags and #r.tags > 0 then
-            sub = sub .. " · " .. table.concat(r.tags, ", ")
-        end
+        local sub = {}
+        if r.status and r.status ~= "" then table.insert(sub, "[" .. r.status .. "]") end
+        if r.author and r.author ~= "" then table.insert(sub, r.author) end
+        if r.tags and #r.tags > 0 then table.insert(sub, table.concat(r.tags, ", ")) end
         if r.word_count then
             local wk = math.floor(tonumber(r.word_count) / 100 + 0.5) / 10
-            sub = sub .. " · " .. tostring(wk) .. "k words"
+            table.insert(sub, tostring(wk) .. "k words")
         end
-        if r.rating then
-            sub = sub .. " ★" .. r.rating
-        end
-        if #sub > C.SEARCH.MAX_SUB_CHARS then sub = sub:sub(1, C.SEARCH.MAX_SUB_CHARS - 2) .. "…" end
+        if r.rating then table.insert(sub, "★" .. r.rating) end
         table.insert(item_table, {
-            text       = r.title,
-            mandatory  = sub,
+            text       = r.title .. "\n" .. table.concat(sub, " · "),
+            mandatory  = (r.chapters or "?") .. " ch",
             fiction_id = r.fiction_id,
             title      = r.title,
             author     = r.author,
@@ -165,9 +161,10 @@ function M:showSearchResults(query, results, page, sort_mode)
 
     local results_menu
     results_menu = Menu:new{
-        covers_fullscreen   = true,
-        is_borderless       = true,
-        is_popout           = false,
+        covers_fullscreen        = true,
+        is_borderless            = true,
+        is_popout                = false,
+        multilines_show_more_text = true,
         title               = T(_("Results: %1 (%2)"), query, #results),
         item_table          = item_table,
         title_bar_fm_style  = true,
