@@ -84,9 +84,11 @@ function M:manageDownloads()
     end
 
     if #item_table == 0 then
+        local hint_text = _("No stories yet — tap ☰ to download your first story")
         table.insert(item_table, {
-            is_hint  = true,
-            text     = _("No stories yet — tap ☰ to download your first story"),
+            is_hint    = true,
+            title      = hint_text,
+            text       = hint_text,
             fiction_id = nil,
         })
     end
