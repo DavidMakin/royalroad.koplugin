@@ -255,6 +255,16 @@ function M:showStoryOptions(fiction_id)
             self:removeFromTracking(fiction_id)
         end,
     }})
+    if Device:canOpenLink() then
+        local story_url = C.BASE_URL .. "/fiction/" .. fiction_id
+        table.insert(buttons, {{
+            text = _("\u{1F310} Open in browser"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                Device:openLink(story_url)
+            end,
+        }})
+    end
     if epub_exists then
         table.insert(buttons, {{
             text = _("\u{2297} Delete EPUB and tracking"),
