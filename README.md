@@ -46,7 +46,11 @@ Royal Road hosts thousands of free web novels. This plugin lets you download any
 
 ### Searching for a story
 
-Open **Tools → Royal Road → Search** and type a title or author name. Results show rating, chapter count, and word count so you can judge a story before downloading.
+Open the plugin via **Tools → Royal Road** to see all options.
+
+![Menu options](screenshots/menu.png)
+
+Search for a story by tapping **Search** and typing a title or author name. Results show rating, chapter count, and word count so you can judge a story before downloading.
 
 ![Search results](screenshots/search_results.png)
 
