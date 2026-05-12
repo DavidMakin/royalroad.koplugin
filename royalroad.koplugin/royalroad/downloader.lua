@@ -404,6 +404,10 @@ end
 function M:fetchPage(page_url)
     local delays = { 2, 5 }
     for attempt = 0, #delays do
+        if attempt > 0 then
+            socket.sleep(delays[attempt])
+        end
+
         local response_body = {}
         local request = {
             url = page_url,
