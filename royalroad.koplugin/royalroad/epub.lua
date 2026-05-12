@@ -471,6 +471,9 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
     end)
 
     if ok and result then
+        if self._pending_descriptions then
+            self._pending_descriptions[fiction_id] = nil
+        end
         local existing = self.downloaded_stories[fiction_id] or {}
         self.downloaded_stories[fiction_id] = {
             fiction_id         = fiction_id,
@@ -506,6 +509,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
     else
         local error_msg = tostring(result)
         logger.warn("Royal Road: EPUB creation failed, falling back to HTML:", error_msg)
+        os.remove(filename)
         UIManager:show(InfoMessage:new{
             text = T(_("EPUB creation failed:\n%1\n\nSaving as HTML instead..."), error_msg),
             timeout = 5,
