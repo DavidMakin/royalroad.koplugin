@@ -211,7 +211,15 @@ function M:showSearchResults(query, results, page, sort_mode)
                 timeout = 2,
             })
             UIManager:scheduleIn(0.1, function()
-                downloader:processFiction(item.fiction_id)
+                local ok, err = pcall(function()
+                    downloader:processFiction(item.fiction_id)
+                end)
+                if not ok then
+                    logger.err("Royal Road: processFiction failed:", err)
+                    UIManager:show(InfoMessage:new{
+                        text = T(_("Failed to fetch story:\n%1"), tostring(err)),
+                    })
+                end
             end)
         end,
         onReturn = function(this)
