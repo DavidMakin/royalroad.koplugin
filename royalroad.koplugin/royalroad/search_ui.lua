@@ -1,3 +1,4 @@
+local ButtonDialog = require("ui/widget/buttondialog")
 local InfoMessage = require("ui/widget/infomessage")
 local InputDialog = require("ui/widget/inputdialog")
 local Menu        = require("ui/widget/menu")
@@ -80,7 +81,7 @@ function M:performSearch(query)
     end)
 end
 
-function M:_loadMoreResults(query, current_results, page, results_menu)
+function M:_loadMoreResults(query, current_results, page, results_menu, sort_mode)
     NetworkMgr:runWhenOnline(function()
         UIManager:show(InfoMessage:new{
             text    = T(_("Loading page %1..."), page),
@@ -104,7 +105,7 @@ function M:_loadMoreResults(query, current_results, page, results_menu)
                 table.insert(current_results, r)
             end
             UIManager:close(results_menu)
-            self:showSearchResults(query, current_results, page)
+            self:showSearchResults(query, current_results, page, sort_mode)
         end)
     end)
 end
@@ -171,10 +172,42 @@ function M:parseSearchResults(html)
     return results
 end
 
-function M:showSearchResults(query, results, page)
+local SORT_MODES = {
+    { key = "default",    label = _("Default") },
+    { key = "title",      label = _("Title A-Z") },
+    { key = "rating",     label = _("Rating ↓") },
+    { key = "wordcount",  label = _("Words ↓") },
+    { key = "chapters",   label = _("Chapters ↓") },
+}
+
+local function sortResults(results, mode)
+    local sorted = {}
+    for _, r in ipairs(results) do table.insert(sorted, r) end
+    if mode == "title" then
+        table.sort(sorted, function(a, b) return (a.title or "") < (b.title or "") end)
+    elseif mode == "rating" then
+        table.sort(sorted, function(a, b)
+            return (tonumber(a.rating) or 0) > (tonumber(b.rating) or 0)
+        end)
+    elseif mode == "wordcount" then
+        table.sort(sorted, function(a, b)
+            return (tonumber(a.word_count) or 0) > (tonumber(b.word_count) or 0)
+        end)
+    elseif mode == "chapters" then
+        table.sort(sorted, function(a, b)
+            return (tonumber(a.chapters) or 0) > (tonumber(b.chapters) or 0)
+        end)
+    end
+    return sorted
+end
+
+function M:showSearchResults(query, results, page, sort_mode)
+    sort_mode = sort_mode or "default"
     local downloader = self
+    local sorted = sortResults(results, sort_mode)
+
     local item_table = {}
-    for _, r in ipairs(results) do
+    for _, r in ipairs(sorted) do
         local sub = r.status and ("[" .. r.status .. "] ") or ""
         sub = sub .. (r.author ~= "" and (r.author .. " - " .. r.chapters .. " ch") or (r.chapters .. " ch"))
         if r.tags and #r.tags > 0 then
@@ -205,15 +238,37 @@ function M:showSearchResults(query, results, page)
 
     local results_menu
     results_menu = Menu:new{
-        covers_fullscreen  = true,
-        is_borderless      = true,
-        is_popout          = false,
-        title              = T(_("Results: %1 (%2)"), query, #results),
-        item_table         = item_table,
-        title_bar_fm_style = true,
+        covers_fullscreen   = true,
+        is_borderless       = true,
+        is_popout           = false,
+        title               = T(_("Results: %1 (%2)"), query, #results),
+        item_table          = item_table,
+        title_bar_fm_style  = true,
+        title_bar_left_icon = "appbar.menu",
+        onLeftButtonTap     = function()
+            local sort_dialog
+            local buttons = {}
+            for _, s in ipairs(SORT_MODES) do
+                local mode_key = s.key
+                table.insert(buttons, {{
+                    text     = (sort_mode == mode_key and "● " or "○ ") .. s.label,
+                    callback = function()
+                        UIManager:close(sort_dialog)
+                        UIManager:close(results_menu)
+                        downloader:showSearchResults(query, results, page, mode_key)
+                    end,
+                }})
+            end
+            table.insert(buttons, {{
+                text     = _("Cancel"),
+                callback = function() UIManager:close(sort_dialog) end,
+            }})
+            sort_dialog = ButtonDialog:new{ buttons = buttons }
+            UIManager:show(sort_dialog)
+        end,
         onMenuSelect       = function(_menu, item)
             if item.load_more then
-                self:_loadMoreResults(query, results, page + 1, results_menu)
+                self:_loadMoreResults(query, results, page + 1, results_menu, sort_mode)
                 return
             end
             UIManager:close(results_menu)
