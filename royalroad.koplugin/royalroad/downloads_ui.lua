@@ -367,7 +367,7 @@ function M:manageDownloads()
             end
         end
 
-        local filter_suffix = (filter_text ~= "") and (" [filter: " .. filter_text .. "]") or ""
+        local filter_suffix = (self._manage_filter or "") ~= "" and (" [filter: " .. self._manage_filter .. "]") or ""
         local menu
         menu = StoryMosaicMenu:new{
             covers_fullscreen       = true,
@@ -516,7 +516,7 @@ function M:manageDownloads()
         end
     end
 
-    local filter_suffix = (filter_text ~= "") and T(_(" [filter: %1]"), filter_text) or ""
+    local filter_suffix = (self._manage_filter or "") ~= "" and (" [filter: " .. self._manage_filter .. "]") or ""
     local menu_title    = T(_("Royal Road Downloader (%1)"), #item_table) .. filter_suffix
 
     local menu
