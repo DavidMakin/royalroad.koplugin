@@ -2,7 +2,6 @@ name: Release
 
 permissions:
   contents: write
-  pull-requests: read
 
 on:
   push:
@@ -46,19 +45,10 @@ jobs:
             -x '**/.github/*' \
             -x '**/*.zip'
 
-      - name: Get release notes from release-drafter
-        id: drafter
-        uses: release-drafter/release-drafter@b1476f6e6eb133afa41ed8589daba6dc69b4d3f5 # v6.1.0
-        with:
-          publish: false
-          tag: ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
         with:
           files: royalroad.koplugin.zip
           draft: false
           prerelease: false
-          body: ${{ steps.drafter.outputs.body }}
+          generate_release_notes: true
