@@ -13,6 +13,20 @@ local M = {}
 
 local C = require("royalroad/constants")
 
+local function sortResults(results, mode)
+    local sorted = {}
+    for _, r in ipairs(results) do table.insert(sorted, r) end
+    if mode == "title" then
+        table.sort(sorted, function(a, b) return (a.title or "") < (b.title or "") end)
+    elseif mode == "rating" then
+        table.sort(sorted, function(a, b) return (tonumber(a.rating) or 0) > (tonumber(b.rating) or 0) end)
+    elseif mode == "wordcount" then
+        table.sort(sorted, function(a, b) return (tonumber(a.word_count) or 0) > (tonumber(b.word_count) or 0) end)
+    elseif mode == "chapters" then
+        table.sort(sorted, function(a, b) return (tonumber(a.chapters) or 0) > (tonumber(b.chapters) or 0) end)
+    end
+    return sorted
+end
 function M:searchStories()
     local search_dialog
     search_dialog = InputDialog:new{
