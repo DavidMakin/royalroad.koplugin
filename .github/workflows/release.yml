@@ -45,10 +45,18 @@ jobs:
             -x '**/.github/*' \
             -x '**/*.zip'
 
+      - name: Get previous tag
+        id: prevtag
+        run: |
+          PREV=$(git tag --sort=-version:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          echo "tag=${PREV}" >> "$GITHUB_OUTPUT"
+
       - name: Build Changelog
         id: changelog
         uses: mikepenz/release-changelog-builder-action@c9dc8369bccbc41e0ac887f8fd674f5925d315f7 # v5.4.1
         with:
+          fromTag: ${{ steps.prevtag.outputs.tag }}
+          toTag: ${{ github.ref_name }}
           mode: "COMMIT"
           configurationJson: |
             {
