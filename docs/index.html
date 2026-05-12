@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Royal Road Downloader for KOReader — search and download web fiction from Royal Road directly to your e-reader as EPUB files.">
+  <meta property="og:title" content="Royal Road Downloader for KOReader">
+  <meta property="og:description" content="Download web fiction from Royal Road directly to your Kobo, Kindle, or Android e-reader.">
+  <meta property="og:type" content="website">
+  <title>Royal Road Downloader for KOReader</title>
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg:         #0f1117;
+      --bg-raised:  #181c26;
+      --bg-card:    #1e2333;
+      --border:     #2a3048;
+      --text:       #e8dfc8;
+      --text-muted: #9a9070;
+      --accent:     #c8a84b;
+      --accent-dim: #9e7e32;
+      --teal:       #4a9e8e;
+      --teal-dim:   #326e62;
+      --radius:     6px;
+      --radius-lg:  12px;
+      --max:        900px;
+      --serif:      Georgia, "Times New Roman", Times, serif;
+      --sans:       -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    /* ── Reset ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 1rem;
+      line-height: 1.65;
+    }
+    img { display: block; max-width: 100%; height: auto; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--text); text-decoration: underline; }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .container {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+    section { padding: 3.5rem 0; }
+    section + section { border-top: 1px solid var(--border); }
+
+    /* ── Typography ──────────────────────────────────────────── */
+    h1, h2, h3 { font-family: var(--serif); font-weight: normal; line-height: 1.25; }
+    h1 { font-size: clamp(1.75rem, 5vw, 2.75rem); color: var(--accent); }
+    h2 { font-size: clamp(1.25rem, 3.5vw, 1.75rem); color: var(--text); margin-bottom: 1.25rem; }
+    h3 { font-size: 1.1rem; color: var(--accent); margin-bottom: 0.4rem; }
+    p { margin-bottom: 0.9rem; color: var(--text); }
+    p:last-child { margin-bottom: 0; }
+
+    /* ── Header / Hero ───────────────────────────────────────── */
+    header {
+      background: linear-gradient(160deg, #13172099 0%, #0f1117 100%),
+                  repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 40px,
+                    rgba(200,168,75,0.03) 40px,
+                    rgba(200,168,75,0.03) 41px
+                  );
+      border-bottom: 1px solid var(--border);
+      padding: 4rem 0 3.5rem;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      font-size: 0.78rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 0.75rem;
+      font-family: var(--sans);
+    }
+    .hero-subtitle {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 540px;
+      margin: 0.75rem 0 2rem;
+    }
+    .hero-cta {
+      display: inline-block;
+      padding: 0.75rem 2rem;
+      background: var(--accent);
+      color: #0f1117;
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      border-radius: var(--radius);
+      transition: background 0.2s, transform 0.15s;
+    }
+    .hero-cta:hover {
+      background: var(--accent-dim);
+      color: #0f1117;
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+    .hero-note {
+      display: block;
+      margin-top: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Features ────────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.4rem 1.25rem;
+      transition: border-color 0.2s;
+    }
+    .feature-card:hover { border-color: var(--accent-dim); }
+
+    /* ── Screenshots ─────────────────────────────────────────── */
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+    @media (min-width: 620px) {
+      .screenshots-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    .screenshot-item { display: flex; flex-direction: column; gap: 0.5rem; }
+    .screenshot-item img {
+      width: 100%;
+      max-width: 280px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .screenshot-item img:hover {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+      transform: translateY(-2px);
+    }
+    .screenshot-caption {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    /* ── Usage steps ─────────────────────────────────────────── */
+    .steps { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+    .step {
+      display: grid;
+      grid-template-columns: 2.5rem 1fr;
+      gap: 1rem;
+      align-items: start;
+    }
+    .step-num {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-body h3 { margin-bottom: 0.25rem; color: var(--text); }
+    .step-body p { color: var(--text-muted); font-size: 0.92rem; margin: 0; }
+
+    /* ── Installation table ──────────────────────────────────── */
+    .table-wrap { overflow-x: auto; margin-top: 1.25rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.9rem;
+      border: 1px solid var(--border);
+    }
+    th {
+      background: var(--bg-raised);
+      color: var(--accent);
+      font-family: var(--serif);
+      font-weight: normal;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    tr:nth-child(even) td { background: var(--bg-raised); }
+    td code {
+      font-family: "SF Mono", "Fira Mono", "Consolas", monospace;
+      font-size: 0.82rem;
+      color: var(--teal);
+      word-break: break-all;
+    }
+
+    /* ── Limitations ─────────────────────────────────────────── */
+    .limitations-list {
+      list-style: none;
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .limitations-list li {
+      padding-left: 1.2rem;
+      position: relative;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+    .limitations-list li::before {
+      content: "-";
+      position: absolute;
+      left: 0;
+      color: var(--border);
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 0;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    footer a { color: var(--text-muted); }
+    footer a:hover { color: var(--accent); }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      section { padding: 2.5rem 0; }
+      .screenshots-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ───────────────────────────────────────────────────── -->
+<header>
+  <div class="container">
+    <span class="hero-eyebrow">KOReader Plugin</span>
+    <h1>Royal Road Downloader</h1>
+    <p class="hero-subtitle">
+      Search and download web fiction from Royal Road directly to your e-reader,
+      as neatly formatted EPUB files — no computer required.
+    </p>
+    <a class="hero-cta" href="https://github.com/DavidMakin/royalroad.koplugin/releases/latest">
+      Download Latest Release
+    </a>
+    <span class="hero-note">Works on Kobo, Kindle, Android, Linux, and macOS</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── Features ─────────────────────────────────────────────── -->
+  <section id="features">
+    <div class="container">
+      <h2>Features</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <h3>On-Device Search</h3>
+          <p>Search Royal Road by title from within KOReader, without leaving your device or opening a browser.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Complete Story Download</h3>
+          <p>Downloads an entire fiction — all chapters, cover image, and metadata — packaged as a single EPUB.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Auto-Update Chapters</h3>
+          <p>Check for new chapters and append them to existing EPUBs automatically, keeping your library current.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Cover Images and Metadata</h3>
+          <p>Fetches the Royal Road cover art, author, and title so your EPUB looks polished in any reader.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Reading Position Preserved</h3>
+          <p>When updating a story, your place in the book is retained — you pick up right where you left off.</p>
+        </div>
+        <div class="feature-card">
+          <h3>Partial Download Resume</h3>
+          <p>If a download is interrupted, the plugin can resume from where it stopped rather than starting over.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Screenshots ───────────────────────────────────────────── -->
+  <section id="screenshots">
+    <div class="container">
+      <h2>Screenshots</h2>
+      <div class="screenshots-grid">
+        <div class="screenshot-item">
+          <img src="../screenshots/main_screen.png" alt="Main plugin screen showing the Royal Road Downloader menu" width="671" height="920" loading="lazy">
+          <span class="screenshot-caption">Main screen</span>
+        </div>
+        <div class="screenshot-item">
+          <img src="../screenshots/menu.png" alt="Plugin menu options within KOReader" width="671" height="920" loading="lazy">
+          <span class="screenshot-caption">Plugin menu</span>
+        </div>
+        <div class="screenshot-item">
+          <img src="../screenshots/search_results.png" alt="Search results listing Royal Road stories" width="671" height="920" loading="lazy">
+          <span class="screenshot-caption">Search results</span>
+        </div>
+        <div class="screenshot-item">
+          <img src="../screenshots/downloads.png" alt="Downloaded stories list with update options" width="671" height="920" loading="lazy">
+          <span class="screenshot-caption">Downloads list</span>
+        </div>
+        <div class="screenshot-item">
+          <img src="../screenshots/update_dialog.png" alt="Update dialog showing new chapters available" width="671" height="920" loading="lazy">
+          <span class="screenshot-caption">Update dialog</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Usage ─────────────────────────────────────────────────── -->
+  <section id="usage">
+    <div class="container">
+      <h2>How to Use</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Search</h3>
+            <p>Open the plugin from the KOReader menu and type a story title. Results from Royal Road appear directly on your device.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Download</h3>
+            <p>Select a story to begin downloading. All chapters are fetched, formatted, and saved as an EPUB with cover art and metadata.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Manage</h3>
+            <p>Your downloaded stories appear in the plugin's library. Open them in KOReader just like any other ebook.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>Update</h3>
+            <p>When new chapters are published, tap Update to fetch and append them. Your reading position is preserved throughout.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Installation ───────────────────────────────────────────── -->
+  <section id="installation">
+    <div class="container">
+      <h2>Installation</h2>
+      <p>
+        Download the latest release, unzip it, and copy the <code style="color:var(--teal);font-family:'SF Mono','Fira Mono',Consolas,monospace;font-size:0.9em;">royalroad.koplugin</code> folder
+        into your KOReader plugins directory for your device, then restart KOReader.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Plugin directory</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Kobo</td>
+              <td><code>/mnt/onboard/.adds/koreader/plugins/</code></td>
+            </tr>
+            <tr>
+              <td>Kindle</td>
+              <td><code>/mnt/us/koreader/plugins/</code></td>
+            </tr>
+            <tr>
+              <td>Android</td>
+              <td><code>/sdcard/koreader/plugins/</code></td>
+            </tr>
+            <tr>
+              <td>Linux / macOS</td>
+              <td><code>~/.config/koreader/plugins/</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:1.1rem;">
+        After installation the plugin is accessible under <strong>Menu &rarr; Tools &rarr; Royal Road Downloader</strong>.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Limitations ───────────────────────────────────────────── -->
+  <section id="limitations">
+    <div class="container">
+      <h2>Limitations</h2>
+      <ul class="limitations-list">
+        <li>No official Royal Road API is used — the plugin scrapes HTML, so changes to the site's structure may break it temporarily until an update is released.</li>
+        <li>Paywalled, member-only, or restricted stories are not supported and cannot be downloaded.</li>
+        <li>Very long stories with hundreds of chapters may take several minutes to download over a slow connection.</li>
+        <li>The plugin does not track new Royal Road releases automatically; you must manually trigger an update check.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <p>
+      <a href="https://github.com/DavidMakin/royalroad.koplugin" target="_blank" rel="noopener">
+        github.com/DavidMakin/royalroad.koplugin
+      </a>
+    </p>
+    <p style="margin-top:0.4rem;">
+      Not affiliated with Royal Road or KOReader. Use responsibly and in accordance with Royal Road's terms of service.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
