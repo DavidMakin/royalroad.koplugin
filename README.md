@@ -2,7 +2,7 @@
 
 Download web fiction from [Royal Road](https://www.royalroad.com/) directly to your e-reader as EPUB files, ready to read offline.
 
-<img src="screenshots/main_screen.png" width="300" alt="Plugin main screen">
+<img src="docs/screenshots/main_screen.png" width="300" alt="Plugin main screen">
 
 ---
 
@@ -48,11 +48,11 @@ Royal Road hosts thousands of free web novels. This plugin lets you download any
 
 Open the plugin via **Tools → Royal Road** to see all options.
 
-<img src="screenshots/menu.png" width="300" alt="Menu options">
+<img src="docs/screenshots/menu.png" width="300" alt="Menu options">
 
 Search for a story by tapping **Search** and typing a title or author name. Results show rating, chapter count, and word count so you can judge a story before downloading.
 
-<img src="screenshots/search_results.png" width="300" alt="Search results">
+<img src="docs/screenshots/search_results.png" width="300" alt="Search results">
 
 Tap a result to see the full description, then tap **Download** to start.
 
@@ -72,7 +72,7 @@ Go to **Tools → Royal Road → Download story**, enter the ID, and tap Downloa
 
 **Tools → Royal Road → My downloads** shows all your downloaded stories with cover images.
 
-<img src="screenshots/downloads.png" width="300" alt="Downloads screen">
+<img src="docs/screenshots/downloads.png" width="300" alt="Downloads screen">
 
 From here you can:
 - Open a story to read it
@@ -84,7 +84,7 @@ From here you can:
 
 Tap **Check for updates** to scan all your downloaded stories for new chapters. Stories with updates are listed — tap **Update** to download the new chapters and merge them into the existing EPUB. Your reading position and bookmarks are preserved.
 
-<img src="screenshots/update_dialog.png" width="300" alt="Update dialog">
+<img src="docs/screenshots/update_dialog.png" width="300" alt="Update dialog">
 
 Interrupted or partial downloads are also detected and resumed automatically.
 

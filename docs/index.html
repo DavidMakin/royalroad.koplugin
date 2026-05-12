@@ -7,7 +7,7 @@
   <meta property="og:title" content="Royal Road Downloader for KOReader">
   <meta property="og:description" content="Download web fiction from Royal Road directly to your Kobo, Kindle, or Android e-reader.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/main_screen.png">
+  <meta property="og:image" content="screenshots/main_screen.png">
   <link rel="canonical" href="https://www.sleep-er.co.uk/royalroad.koplugin/">
   <title>Royal Road Downloader for KOReader</title>
   <style>
@@ -77,6 +77,8 @@
     .hero-nav {
       display: flex;
       justify-content: flex-end;
+      align-items: center;
+      gap: 0.5rem;
       margin-bottom: 2.5rem;
     }
     .hero-nav-link {
@@ -197,6 +199,51 @@
       color: var(--text-muted);
       font-size: 0.95rem;
     }
+    .walk-path-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .walk-path-header::before,
+    .walk-path-header::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .walk-path-label {
+      white-space: nowrap;
+      font-family: var(--sans);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--teal);
+      background: var(--bg-card);
+      border: 1px solid var(--teal-dim);
+      border-radius: 999px;
+      padding: 0.25rem 0.9rem;
+    }
+    .walk-merge {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .walk-merge::before,
+    .walk-merge::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .walk-merge span {
+      white-space: nowrap;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
 
     /* ── Usage steps ─────────────────────────────────────────── */
     .steps { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
@@ -302,9 +349,10 @@
 <header>
   <div class="container">
     <nav class="hero-nav">
-      <a class="hero-nav-link" href="https://github.com/DavidMakin/royalroad.koplugin" target="_blank" rel="noopener">
-        GitHub
-      </a>
+      <a class="hero-nav-link" href="#features">Features</a>
+      <a class="hero-nav-link" href="#screenshots">How it works</a>
+      <a class="hero-nav-link" href="#installation">Install</a>
+      <a class="hero-nav-link" href="https://github.com/DavidMakin/royalroad.koplugin" target="_blank" rel="noopener">GitHub</a>
     </nav>
     <span class="hero-eyebrow">KOReader Plugin</span>
     <h1>Royal Road Downloader</h1>
@@ -362,7 +410,7 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/menu.png"
+            <img src="screenshots/menu.png"
                  alt="Plugin options menu inside KOReader" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
@@ -372,9 +420,11 @@
           </div>
         </div>
 
+        <div class="walk-path-header"><span class="walk-path-label">Path A — Search</span></div>
+
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/search_initial_popup.png"
+            <img src="screenshots/search_initial_popup.png"
                  alt="Search input dialog for Royal Road" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
@@ -386,7 +436,7 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/search_results.png"
+            <img src="screenshots/search_results.png"
                  alt="Search results listing Royal Road stories with rating and chapter count" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
@@ -396,13 +446,29 @@
           </div>
         </div>
 
+        <div class="walk-path-header"><span class="walk-path-label">Path B — Download by URL or ID</span></div>
+
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/search%20chapter%20select.png"
+            <img src="screenshots/download_by_id_or_url.png"
+                 alt="Download story by entering a Royal Road URL or fiction ID" width="671" height="920" loading="lazy">
+          </div>
+          <div class="walk-step-body">
+            <div class="walk-step-num">2</div>
+            <h3>Enter a URL or story ID</h3>
+            <p>If you already know the story, paste its Royal Road URL or just the fiction ID (the number from the URL). No browsing needed.</p>
+          </div>
+        </div>
+
+        <div class="walk-merge"><span>paths merge here</span></div>
+
+        <div class="walk-step">
+          <div class="walk-step-img">
+            <img src="screenshots/search_chapter_select.png"
                  alt="Chapter range selection screen" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">4</div>
+            <div class="walk-step-num">3</div>
             <h3>Choose chapters</h3>
             <p>Optionally select a chapter range — download the whole story or just the chapters you want.</p>
           </div>
@@ -410,11 +476,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/search_download_in_progress.png"
+            <img src="screenshots/search_download_in_progress.png"
                  alt="Download progress screen with ETA" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">5</div>
+            <div class="walk-step-num">4</div>
             <h3>Downloading</h3>
             <p>A progress bar shows how many chapters have been fetched, with an estimated time to completion.</p>
           </div>
@@ -422,11 +488,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/search_finished_download.png"
+            <img src="screenshots/search_finished_download.png"
                  alt="Download complete confirmation screen" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">6</div>
+            <div class="walk-step-num">5</div>
             <h3>Done</h3>
             <p>The EPUB is saved and ready to read. Open it directly from the confirmation screen or find it in your library.</p>
           </div>
@@ -434,11 +500,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/main_screen.png"
+            <img src="screenshots/main_screen.png"
                  alt="Downloaded stories library with cover art" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">7</div>
+            <div class="walk-step-num">6</div>
             <h3>Your library</h3>
             <p>Downloaded stories appear in your library with cover art. Filter and sort to find what you want.</p>
           </div>
@@ -446,11 +512,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="https://raw.githubusercontent.com/DavidMakin/royalroad.koplugin/main/screenshots/update_dialog.png"
+            <img src="screenshots/update_dialog.png"
                  alt="Update dialog showing new chapters available to download" width="671" height="920" loading="lazy">
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">8</div>
+            <div class="walk-step-num">7</div>
             <h3>Updates</h3>
             <p>Check for new chapters at any time. New chapters are merged into the existing EPUB — your reading position and bookmarks are preserved.</p>
           </div>
