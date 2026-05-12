@@ -1,4 +1,5 @@
-local util = require("util")
+local util   = require("util")
+local logger = require("logger")
 
 local C = require("royalroad/constants")
 
@@ -109,7 +110,11 @@ function M:extractWordCount(html)
 end
 
 function M:extractLastChapterDate(html)
-    return html:match('.*<time[^>]+datetime="([^"]+)"')
+    local date
+    for d in html:gmatch('<time[^>]+datetime="([^"]+)"') do
+        date = d
+    end
+    return date
 end
 
 function M:extractChapterTitle(html)
@@ -214,6 +219,9 @@ function M:parseSearchResults(html)
         if #results >= C.SEARCH.MAX_RESULTS then break end
     end
 
+    if #results == 0 and #html > 1000 then
+        logger.warn("Royal Road: parseSearchResults returned 0 results from non-empty HTML (site structure may have changed)")
+    end
     return results
 end
 
