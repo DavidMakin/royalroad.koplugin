@@ -53,31 +53,43 @@ jobs:
 
       - name: Build Changelog
         id: changelog
-        uses: mikepenz/release-changelog-builder-action@c9dc8369bccbc41e0ac887f8fd674f5925d315f7 # v5.4.1
-        with:
-          fromTag: ${{ steps.prevtag.outputs.tag }}
-          toTag: ${{ github.ref_name }}
-          mode: "COMMIT"
-          configurationJson: |
-            {
-              "template": "#{{CHANGELOG}}",
-              "categories": [
-                { "title": "## 🚀 Features",    "labels": ["feat"] },
-                { "title": "## 🐛 Bug Fixes",   "labels": ["fix"] },
-                { "title": "## 🧰 Maintenance", "labels": ["refactor","chore","ci","build","docs","perf","style","test"] }
-              ],
-              "label_extractor": [
-                {
-                  "pattern": "^(feat|fix|refactor|chore|ci|build|docs|perf|style|test)(\\([^)]+\\))?(!)?:",
-                  "on_property": "title",
-                  "target": "$1"
-                }
-              ],
-              "ignore_labels": ["chore", "ci", "build", "style"],
-              "commit_template": "- #{{TITLE}}"
-            }
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREV="${{ steps.prevtag.outputs.tag }}"
+          if [ -z "${PREV}" ]; then
+            RANGE="${GITHUB_REF_NAME}"
+          else
+            RANGE="${PREV}..${GITHUB_REF_NAME}"
+          fi
+
+          features=""
+          fixes=""
+          maintenance=""
+
+          while IFS= read -r line; do
+            case "${line}" in
+              "feat"*) features="${features}- ${line}"$'\n' ;;
+              "fix"*)  fixes="${fixes}- ${line}"$'\n' ;;
+              "chore: set version"*) ;;
+              *) maintenance="${maintenance}- ${line}"$'\n' ;;
+            esac
+          done < <(git log "${RANGE}" --pretty=format:"%s" | grep -v '^Merge ')
+
+          body=""
+          if [ -n "${features}" ]; then
+            body="${body}## 🚀 Features"$'\n'"${features}"$'\n'
+          fi
+          if [ -n "${fixes}" ]; then
+            body="${body}## 🐛 Bug Fixes"$'\n'"${fixes}"$'\n'
+          fi
+          if [ -n "${maintenance}" ]; then
+            body="${body}## 🧰 Maintenance"$'\n'"${maintenance}"$'\n'
+          fi
+
+          {
+            echo "changelog<<EOF"
+            echo "${body}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
