@@ -1,18 +1,27 @@
 local Blitbuffer      = require("ffi/blitbuffer")
 local Button          = require("ui/widget/button")
 local ButtonDialog    = require("ui/widget/buttondialog")
+local ButtonTable     = require("ui/widget/buttontable")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
 local Font            = require("ui/font")
 local FrameContainer  = require("ui/widget/container/framecontainer")
 local Geom            = require("ui/geometry")
+local HorizontalGroup = require("ui/widget/horizontalgroup")
+local HorizontalSpan  = require("ui/widget/horizontalspan")
+local ImageWidget     = require("ui/widget/imagewidget")
 local InfoMessage     = require("ui/widget/infomessage")
 local InputDialog     = require("ui/widget/inputdialog")
+local InputText       = require("ui/widget/inputtext")
 local ProgressWidget  = require("ui/widget/progresswidget")
+local RenderImage     = require("ui/renderimage")
 local Size            = require("ui/size")
+local TextBoxWidget   = require("ui/widget/textboxwidget")
 local TextWidget      = require("ui/widget/textwidget")
+local TitleBar        = require("ui/widget/titlebar")
 local UIManager       = require("ui/uimanager")
 local VerticalGroup   = require("ui/widget/verticalgroup")
+local VerticalSpan    = require("ui/widget/verticalspan")
 local lfs             = require("libs/libkoreader-lfs")
 local logger          = require("logger")
 local socket          = require("socket")
@@ -295,61 +304,148 @@ function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls,
         end)
     end
 
+    local screen_w = Device.screen:getWidth()
+    local dialog_w = math.floor(screen_w * 0.85)
+    local pad = Size.padding.large
+
     local range_dialog
-    range_dialog = InputDialog:new{
-        title       = _("Select chapters to download"),
-        description = T(_("%1\nBy: %2\n%3 chapters available\n\nLeave as-is to download all.\nEnter a range like 1-%3 to download specific chapters.\nEnter a single number like 50 to download the last 50 chapters."),
-                        story_title, author or _("Unknown"), total_available),
-        input      = "1-" .. tostring(total_available),
-        input_hint = T(_("all=1-%1  last 50=50  range=1-%1"), total_available),
-        input_type = "string",
-        buttons = {
+    local input_text
+
+    local function closeDialog()
+        input_text:onCloseKeyboard()
+        UIManager:close(range_dialog)
+    end
+
+    local function onDownload()
+        local raw = input_text:getText():gsub("%s", "")
+        closeDialog()
+
+        local from_ch, to_ch
+        local range_from, range_to = raw:match("^(%d+)-(%d+)$")
+        if range_from and range_to then
+            from_ch = math.max(1, tonumber(range_from))
+            to_ch   = math.min(total_available, tonumber(range_to))
+        else
+            local n = tonumber(raw)
+            if n then
+                from_ch = math.max(1, total_available - n + 1)
+                to_ch   = total_available
+            else
+                from_ch = 1
+                to_ch   = total_available
+            end
+        end
+
+        if from_ch > to_ch then
+            UIManager:show(InfoMessage:new{
+                text    = _("Invalid range."),
+                timeout = 3,
+            })
+            return
+        end
+
+        doDownload(from_ch, to_ch)
+    end
+
+    local function buildAndShow(cover_bb)
+        local desc_text = T(
+        _("%1\nBy: %2\n%3 chapters available\n\nLeave as-is to download all.\nEnter a range like 1-%3 to download specific chapters.\nEnter a single number like 50 to download the last 50 chapters."),
+        story_title, author or _("Unknown"), total_available)
+
+    local face = Font:getFace("cfont", 18)
+
+    local info_row
+    if cover_bb then
+        local cover_w = cover_bb:getWidth()
+        local text_w  = dialog_w - pad * 2 - cover_w - pad
+        info_row = HorizontalGroup:new{
+            align = "top",
+            ImageWidget:new{
+                image  = cover_bb,
+                width  = cover_w,
+                height = cover_bb:getHeight(),
+            },
+            HorizontalSpan:new{ width = pad },
+            TextBoxWidget:new{
+                text  = desc_text,
+                face  = face,
+                width = text_w,
+            },
+        }
+    else
+        info_row = TextBoxWidget:new{
+            text  = desc_text,
+            face  = face,
+            width = dialog_w - pad * 2,
+        }
+    end
+
+    input_text = InputText:new{
+        text           = "1-" .. tostring(total_available),
+        face           = Font:getFace("cfont", 20),
+        width          = dialog_w - pad * 2,
+        focused        = true,
+        scroll         = false,
+        input_type     = "string",
+        enter_callback = onDownload,
+    }
+
+    local btn_table = ButtonTable:new{
+        width    = dialog_w - pad * 2,
+        buttons  = {
             {
-                {
-                    text = _("Cancel"),
-                    callback = function()
-                        UIManager:close(range_dialog)
-                    end,
-                },
-                {
-                    text = _("Download"),
-                    is_enter_default = true,
-                    callback = function()
-                        local raw = range_dialog:getInputText():gsub("%s", "")
-                        UIManager:close(range_dialog)
+                { text = _("Cancel"),   callback = closeDialog },
+                { text = _("Download"), is_enter_default = true, callback = onDownload },
+            },
+        },
+        zero_sep = true,
+    }
 
-                        local from_ch, to_ch
-                        local range_from, range_to = raw:match("^(%d+)-(%d+)$")
-                        if range_from and range_to then
-                            from_ch = math.max(1, tonumber(range_from))
-                            to_ch   = math.min(total_available, tonumber(range_to))
-                        else
-                            local n = tonumber(raw)
-                            if n then
-                                from_ch = math.max(1, total_available - n + 1)
-                                to_ch   = total_available
-                            else
-                                from_ch = 1
-                                to_ch   = total_available
-                            end
-                        end
+    local title_bar = TitleBar:new{
+        width            = dialog_w,
+        title            = _("Select chapters to download"),
+        with_bottom_line = true,
+        close_callback   = closeDialog,
+    }
 
-                        if from_ch > to_ch then
-                            UIManager:show(InfoMessage:new{
-                                text    = _("Invalid range."),
-                                timeout = 3,
-                            })
-                            return
-                        end
-
-                        doDownload(from_ch, to_ch)
-                    end,
+    range_dialog = CenterContainer:new{
+        dimen = Device.screen:getSize(),
+        FrameContainer:new{
+            padding    = 0,
+            bordersize = Size.border.window,
+            background = Blitbuffer.COLOR_WHITE,
+            VerticalGroup:new{
+                title_bar,
+                FrameContainer:new{
+                    padding    = pad,
+                    bordersize = 0,
+                    background = Blitbuffer.COLOR_WHITE,
+                    VerticalGroup:new{
+                        align = "left",
+                        info_row,
+                        VerticalSpan:new{ width = pad },
+                        input_text,
+                        VerticalSpan:new{ width = Size.padding.small },
+                        btn_table,
+                    },
                 },
             },
         },
     }
+    input_text.parent = range_dialog
+
     UIManager:show(range_dialog)
-    range_dialog:onShowKeyboard()
+    UIManager:setDirty(nil, "full")
+    end
+
+    if cover_image and cover_image.data then
+        UIManager:scheduleIn(0, function()
+            buildAndShow(RenderImage:renderImageData(
+                cover_image.data, #cover_image.data, false, 80, 120))
+        end)
+    else
+        buildAndShow(nil)
+    end
 end
 
 function M:queueDownload(fiction_id, story_title, author, chapter_urls, cover_image, cover_url, partial_of)
