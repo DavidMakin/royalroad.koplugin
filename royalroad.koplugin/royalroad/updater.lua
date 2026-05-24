@@ -550,9 +550,13 @@ function M:updateStory(fiction_id, current_urls, on_complete, batch)
     end)
     if ok and doc_settings and doc_settings.data then
         old_position = {
-            last_xpointer = doc_settings.data.last_xpointer,
-            bookmarks = doc_settings.data.bookmarks,
-            highlights = doc_settings.data.highlight,
+            last_xpointer    = doc_settings.data.last_xpointer,
+            bookmarks        = doc_settings.data.bookmarks,
+            highlights       = doc_settings.data.highlight,
+            pos              = doc_settings.data.pos,
+            page             = doc_settings.data.page,
+            last_page        = doc_settings.data.last_page,
+            percent_finished = doc_settings.data.percent_finished,
         }
         logger.info("Royal Road: Saved reading position for restoration")
     end
@@ -812,23 +816,24 @@ function M:rebuildEPUBWithNewChapters(state)
     self:_invalidateCoverCache(state.fiction_id)
 
     if state.old_position.last_xpointer then
-        UIManager:scheduleIn(0.5, function()
-            local ok, doc_settings = pcall(function()
-                local entry = self.downloaded_stories[state.fiction_id]
-                return DocSettings:open(entry and entry.epub_path or state.story.epub_path)
-            end)
-            if ok and doc_settings then
-                doc_settings.data.last_xpointer = state.old_position.last_xpointer
-                if state.old_position.bookmarks then
-                    doc_settings.data.bookmarks = state.old_position.bookmarks
-                end
-                if state.old_position.highlights then
-                    doc_settings.data.highlight = state.old_position.highlights
-                end
-                doc_settings:flush()
-                logger.info("Royal Road: Restored reading position")
-            end
+        local ok, doc_settings = pcall(function()
+            return DocSettings:open(state.story.epub_path)
         end)
+        if ok and doc_settings then
+            doc_settings.data.last_xpointer    = state.old_position.last_xpointer
+            doc_settings.data.percent_finished = state.old_position.percent_finished
+            if state.old_position.page     then doc_settings.data.page     = state.old_position.page     end
+            if state.old_position.last_page then doc_settings.data.last_page = state.old_position.last_page end
+            if state.old_position.pos      then doc_settings.data.pos      = state.old_position.pos      end
+            if state.old_position.bookmarks then
+                doc_settings.data.bookmarks = state.old_position.bookmarks
+            end
+            if state.old_position.highlights then
+                doc_settings.data.highlight = state.old_position.highlights
+            end
+            doc_settings:flush()
+            logger.info("Royal Road: Restored reading position")
+        end
     end
 
     if state.on_complete then
