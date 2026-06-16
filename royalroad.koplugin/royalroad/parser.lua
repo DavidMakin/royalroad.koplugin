@@ -150,7 +150,6 @@ function M:extractChapterContent(html)
             depth = depth - 1
             if depth == 0 then
                 local content = html:sub(content_start, close_pos - 1)
-                content = util.htmlEntitiesToUtf8(content)
                 return content
             end
             pos = close_pos + 6

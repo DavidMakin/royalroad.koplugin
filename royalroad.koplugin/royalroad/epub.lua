@@ -10,9 +10,7 @@ local M = {}
 
 local _plugin_dir = debug.getinfo(1, "S").source:match("^@(.+)/[^/]+$") or "."
 
-local CSS_BEFORE  = util.readFromFile(_plugin_dir .. "/ReadiumCSS-before.css")  or ""
-local CSS_DEFAULT = util.readFromFile(_plugin_dir .. "/ReadiumCSS-default.css") or ""
-local CSS_AFTER   = util.readFromFile(_plugin_dir .. "/ReadiumCSS-after.css")   or ""
+local CSS = util.readFromFile(_plugin_dir .. "/royalroad.css") or ""
 
 function M:ensureDownloadDir()
     local ok, err = util.makePath(self.download_dir)
@@ -253,9 +251,7 @@ function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
 
     table.insert(manifest_items, '    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>')
     table.insert(manifest_items, '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>')
-    table.insert(manifest_items, '    <item id="css-before" href="ReadiumCSS-before.css" media-type="text/css"/>')
-    table.insert(manifest_items, '    <item id="css-default" href="ReadiumCSS-default.css" media-type="text/css"/>')
-    table.insert(manifest_items, '    <item id="css-after" href="ReadiumCSS-after.css" media-type="text/css"/>')
+    table.insert(manifest_items, '    <item id="css" href="royalroad.css" media-type="text/css"/>')
 
     return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, first_chapter_file
 end
@@ -316,9 +312,7 @@ function M:_buildNav(escaped_title, nav_entries, nav_landmarks)
       xml:lang="en" lang="en">
 <head>
   <title>%s</title>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-before.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-default.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-after.css"/>
+  <link rel="stylesheet" type="text/css" href="royalroad.css"/>
 </head>
 <body>
   <nav epub:type="toc" id="toc">
@@ -340,18 +334,16 @@ function M:_addChapters(epub, chapters)
     for i, chapter in ipairs(chapters) do
         local esc_ch        = self:escapeXML(chapter.title)
         local chapter_content = (chapter.content or "")
-        chapter_content = chapter_content:gsub("<br([^>]*)>", "<br%1/>")
-        chapter_content = chapter_content:gsub("<hr([^>]*)>", "<hr%1/>")
-        chapter_content = chapter_content:gsub("<img([^>]-)>", "<img%1/>")
-        chapter_content = chapter_content:gsub("<input([^>]-)>", "<input%1/>")
+        chapter_content = chapter_content:gsub("<br([^>/]*)>", "<br%1/>")
+        chapter_content = chapter_content:gsub("<hr([^>/]*)>", "<hr%1/>")
+        chapter_content = chapter_content:gsub("<img([^>/]-)>", "<img%1/>")
+        chapter_content = chapter_content:gsub("<input([^>/]-)>", "<input%1/>")
         local chapter_xhtml = string.format([[<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
   <title>%s</title>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-before.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-default.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-after.css"/>
+  <link rel="stylesheet" type="text/css" href="royalroad.css"/>
 </head>
 <body>
   <div class="chapter">
@@ -412,9 +404,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         epub:addFileFromMemory("nav.xhtml",
             self:_buildNav(escaped_title, nav_entries, nav_landmarks))
 
-        epub:addFileFromMemory("ReadiumCSS-before.css", CSS_BEFORE)
-        epub:addFileFromMemory("ReadiumCSS-default.css", CSS_DEFAULT)
-        epub:addFileFromMemory("ReadiumCSS-after.css", CSS_AFTER)
+        epub:addFileFromMemory("royalroad.css", CSS)
 
         if has_cover then
             local img_w, img_h = self:getImageDimensions(cover_image.data, cover_image.mime_type)
@@ -446,9 +436,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" xmlns:epub="http://www.idpf.org/2007/ops">
 <head>
   <title>%s</title>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-before.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-default.css"/>
-  <link rel="stylesheet" type="text/css" href="ReadiumCSS-after.css"/>
+  <link rel="stylesheet" type="text/css" href="royalroad.css"/>
 </head>
 <body>
     <div id="title-page" class="element" epub:type="titlepage">

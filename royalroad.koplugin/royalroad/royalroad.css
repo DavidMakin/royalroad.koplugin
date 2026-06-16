@@ -1,0 +1,47 @@
+/* Royal Road EPUB - Minimal base styles
+ *
+ * This is a lightweight baseline for readers that apply their own
+ * typography (e.g. KOReader, Calibre). It avoids overriding user
+ * font-family, font-size, text-align, or page margins — those
+ * are better managed by the reading app.
+ */
+
+body {
+  line-height: 1.5;
+  widows: 2;
+  orphans: 2;
+}
+
+h2 {
+  font-size: 1.2em;
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+  text-align: left;
+}
+
+p {
+  margin: 0.5em 0;
+  text-indent: 0;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+blockquote {
+  margin: 0.5em 1em;
+  font-style: italic;
+}
+
+.title-page-title {
+  font-size: 1.5em;
+  font-weight: bold;
+  text-align: center;
+  margin: 2em 0 0.5em;
+}
+
+.description {
+  font-style: italic;
+  margin: 1em 0;
+}
