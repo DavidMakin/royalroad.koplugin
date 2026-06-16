@@ -247,6 +247,17 @@ function M:showStoryOptions(fiction_id)
             end,
         }})
     end
+    if Device:canOpenLink() then
+        local story_url = C.BASE_URL .. "/fiction/" .. fiction_id
+        table.insert(buttons, {{
+            text = _("\u{1F310} Open in browser"),
+            callback = function()
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                Device:openLink(story_url)
+            end,
+        }})
+    end
     table.insert(buttons, {{
             text = _("\u{2296} Remove from tracking"),
         callback = function()
@@ -255,16 +266,6 @@ function M:showStoryOptions(fiction_id)
             self:removeFromTracking(fiction_id)
         end,
     }})
-    if Device:canOpenLink() then
-        local story_url = C.BASE_URL .. "/fiction/" .. fiction_id
-        table.insert(buttons, {{
-            text = _("\u{1F310} Open in browser"),
-            callback = function()
-                UIManager:close(self.story_detail_dialog)
-                Device:openLink(story_url)
-            end,
-        }})
-    end
     if epub_exists then
         table.insert(buttons, {{
             text = _("\u{2297} Delete EPUB and tracking"),
@@ -432,10 +433,6 @@ function M:deleteAndRedownload(fiction_id)
             self.downloaded_stories[fiction_id] = nil
             self:_invalidateStoryCount()
             self:saveSettings()
-
-            if self.manage_menu then
-                UIManager:close(self.manage_menu)
-            end
 
             UIManager:scheduleIn(0.1, function()
                 self:processFiction(fiction_id)
