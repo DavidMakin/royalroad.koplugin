@@ -44,10 +44,26 @@ function M:_computeStoryUpdate(fiction_id, story)
     for _, u in ipairs(story.chapter_urls or {}) do known_set[u] = true end
     for _, u in ipairs(story.queued_chapter_urls or {}) do known_set[u] = true end
 
-    local new_chapters = 0
-    for _, u in ipairs(current_urls) do
-        if not known_set[u] then new_chapters = new_chapters + 1 end
+    -- Find the last position of any known URL in current_urls.
+    -- This correctly handles partial/range-limited downloads where
+    -- old skipped chapters appear before known ones in the full URL list.
+    local last_known_pos = 0
+    for i, u in ipairs(current_urls) do
+        if known_set[u] then
+            last_known_pos = i
+        end
     end
+
+    -- Only count URLs after the last known position as genuinely new.
+    -- This prevents old chapters (from partial downloads) from being
+    -- detected as "new" and appended to the end of the EPUB.
+    local new_urls_list = {}
+    for i = last_known_pos + 1, #current_urls do
+        if not known_set[current_urls[i]] then
+            table.insert(new_urls_list, current_urls[i])
+        end
+    end
+    local new_chapters = #new_urls_list
 
     local missing_from_epub = 0
     for _, u in ipairs(story.queued_chapter_urls or {}) do
@@ -64,7 +80,7 @@ function M:_computeStoryUpdate(fiction_id, story)
         stored_count  = stored_count,
         current_count = current_count,
         new_chapters  = new_chapters + missing_from_epub,
-        current_urls  = current_urls,
+        current_urls  = new_urls_list,
     }, false
 end
 
@@ -787,13 +803,25 @@ function M:rebuildEPUBWithNewChapters(state)
         end
     end
 
+    -- Build the URL list from existing (stored) chapters + newly downloaded ones.
+    -- This ensures chapter_urls only contains URLs for chapters actually in the
+    -- EPUB, preventing partial-download mismatches where old skipped chapters
+    -- would otherwise appear as "new" and corrupt the saved URL set.
+    local combined_urls = {}
+    for _, url in ipairs(state.story.chapter_urls or {}) do
+        table.insert(combined_urls, url)
+    end
+    for _, url in ipairs(state.new_urls) do
+        table.insert(combined_urls, url)
+    end
+
     self:saveAsEPUB(
         state.fiction_id,
         state.story.title,
         state.story.author,
         all_chapters,
         cover_image,
-        state.all_urls,
+        combined_urls,
         cover_url,
         state.story.epub_path,
         state.on_complete ~= nil
@@ -809,24 +837,25 @@ function M:rebuildEPUBWithNewChapters(state)
 
     self:_invalidateCoverCache(state.fiction_id)
 
+    -- Restore reading position synchronously after EPUB rebuild.
+    -- No timer delay needed since saveAsEPUB completed synchronously,
+    -- avoiding races with KOReader's file detection.
     if state.old_position.last_xpointer then
-        UIManager:scheduleIn(0.5, function()
-            local ok, doc_settings = pcall(function()
-                local entry = self.downloaded_stories[state.fiction_id]
-                return DocSettings:open(entry and entry.epub_path or state.story.epub_path)
-            end)
-            if ok and doc_settings then
-                doc_settings.data.last_xpointer = state.old_position.last_xpointer
-                if state.old_position.bookmarks then
-                    doc_settings.data.bookmarks = state.old_position.bookmarks
-                end
-                if state.old_position.highlights then
-                    doc_settings.data.highlight = state.old_position.highlights
-                end
-                doc_settings:flush()
-                logger.info("Royal Road: Restored reading position")
-            end
+        local ok, doc_settings = pcall(function()
+            local entry = self.downloaded_stories[state.fiction_id]
+            return DocSettings:open(entry and entry.epub_path or state.story.epub_path)
         end)
+        if ok and doc_settings then
+            doc_settings.data.last_xpointer = state.old_position.last_xpointer
+            if state.old_position.bookmarks then
+                doc_settings.data.bookmarks = state.old_position.bookmarks
+            end
+            if state.old_position.highlights then
+                doc_settings.data.highlight = state.old_position.highlights
+            end
+            doc_settings:flush()
+            logger.info("Royal Road: Restored reading position")
+        end
     end
 
     if state.on_complete then

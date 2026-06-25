@@ -20,3 +20,5 @@ crash.log
 
 # Testing
 test_*.lua
+
+.opencode
