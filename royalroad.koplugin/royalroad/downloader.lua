@@ -482,7 +482,16 @@ end
 
 function M:_onDownloadComplete()
     self._download_active = false
-    self._page_cache = nil
+    if self._page_cache then
+        -- Evict entries cached before this download started so stale
+        -- story pages get re-fetched on next update check.
+        local deadline = self._download_start_time or os.time()
+        for url, entry in pairs(self._page_cache) do
+            if entry.time < deadline then
+                self._page_cache[url] = nil
+            end
+        end
+    end
     if self.manage_menu then
         self:refreshManageMenu()
     end
@@ -560,6 +569,10 @@ function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover
     local total_chapters = #chapter_urls
     local chapters_data = {}
     local start_time = socket.gettime()
+
+    -- Record when this download began so _onDownloadComplete can evict
+    -- stale cache entries without nuking the whole cache.
+    self._download_start_time = os.time()
 
     self:keepScreenAwake()
 

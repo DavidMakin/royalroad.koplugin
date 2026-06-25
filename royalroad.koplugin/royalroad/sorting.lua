@@ -20,7 +20,7 @@ function M.sortSearchResults(results, mode)
     elseif mode == "wordcount" then
         table.sort(sorted, function(a, b) return (tonumber(a.word_count) or 0) > (tonumber(b.word_count) or 0) end)
     elseif mode == "chapters" then
-        table.sort(sorted, function(a, b) return (tonumber(a.chapters) or 0) > (tonumber(b.chapters) or 0) end)
+        table.sort(sorted, function(a, b) return (a.chapters or 0) > (b.chapters or 0) end)
     end
     return sorted
 end

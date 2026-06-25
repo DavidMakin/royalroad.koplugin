@@ -162,7 +162,7 @@ function M:showStoryOptions(fiction_id)
     if read_percent and read_percent > 0 then
         table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
         table.insert(meta_group, TextWidget:new{
-            text    = T(_("Progress: %1%"), math.floor(read_percent * 100)),
+            text    = T(_("Progress: %1%"), math.floor(read_percent * 100 + 0.5)),
             face    = Font:getFace("smallffont"),
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })

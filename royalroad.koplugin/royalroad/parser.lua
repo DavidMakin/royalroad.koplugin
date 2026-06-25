@@ -181,7 +181,8 @@ function M:parseSearchResults(html)
                 author = trim(author:gsub("<[^>]+>", ""))
             end
 
-            local chapters = block:match('<span[^>]*title="Chapters"[^>]*>%s*(%d+[^<]*)</span>')
+            local chapters_str = block:match('<span[^>]*title="Chapters"[^>]*>%s*(%d+[^<]*)</span>')
+local chapters = chapters_str and tonumber(chapters_str:match("%d+"))
                 or block:match('(%d+)%s*[Cc]hapters?')
 
             local rating = block:match('"ratingValue"%s*:%s*"([%d%.]+)"')
@@ -207,7 +208,7 @@ function M:parseSearchResults(html)
                     fiction_id = fiction_id,
                     title      = title,
                     author     = author or "",
-                    chapters   = chapters or "?",
+                    chapters   = chapters,
                     tags       = tags,
                     rating     = rating,
                     status     = status,

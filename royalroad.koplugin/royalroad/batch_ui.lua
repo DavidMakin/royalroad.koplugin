@@ -2,10 +2,13 @@ local ButtonDialog  = require("ui/widget/buttondialog")
 local ConfirmBox    = require("ui/widget/confirmbox")
 local InfoMessage   = require("ui/widget/infomessage")
 local Menu          = require("ui/widget/menu")
-local UIManager     = require("ui/uimanager")
+local UIManager   = require("ui/uimanager")
 local ffiUtil       = require("ffi/util")
 local T             = ffiUtil.template
 local _             = require("gettext")
+
+local C = require("royalroad/constants")
+local SCHEDULE_DELAY = C.NETWORK.SCHEDULE_DELAY
 
 local M = {}
 
@@ -183,7 +186,7 @@ function M:batchUpdate(selected)
         }
         UIManager:show(current_msg)
 
-        UIManager:scheduleIn(0, function()
+        UIManager:scheduleIn(self.rate_limit_delay + SCHEDULE_DELAY, function()
             if story then
                 local update, fetch_failed = self:_computeStoryUpdate(fiction_id, story)
                 if update then
@@ -274,7 +277,7 @@ function M:batchRefreshCovers(selected)
         }
         UIManager:show(current_msg)
 
-        UIManager:scheduleIn(0, function()
+        UIManager:scheduleIn(self.rate_limit_delay + SCHEDULE_DELAY, function()
             if story and story.cover_url and story.cover_url ~= "" then
                 local image_data, mime_type, extension = self:fetchImage(story.cover_url)
                 if image_data then

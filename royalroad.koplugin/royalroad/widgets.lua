@@ -1,5 +1,6 @@
 local Blitbuffer     = require("ffi/blitbuffer")
 local CenterContainer = require("ui/widget/container/centercontainer")
+local Device         = require("device")
 local Font           = require("ui/font")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local Geom           = require("ui/geometry")
@@ -19,13 +20,15 @@ local VerticalSpan   = require("ui/widget/verticalspan")
 local T              = require("ffi/util").template
 local _              = require("gettext")
 
-local STORY_COVER_HEIGHT = 100
+local screen = Device.screen
+
+local STORY_COVER_HEIGHT = screen and screen:scaleBySize(100) or 100
 local STORY_COVER_WIDTH  = math.floor(STORY_COVER_HEIGHT * 2 / 3)
-local STORY_ITEM_PAD     = 8
+local STORY_ITEM_PAD     = screen and screen:scaleBySize(8) or 8
 
 local GRID_COLS     = 3
-local GRID_CELL_GAP = 6
-local GRID_ROW_GAP  = 8
+local GRID_CELL_GAP = screen and screen:scaleBySize(6) or 6
+local GRID_ROW_GAP  = screen and screen:scaleBySize(8) or 8
 
 local function fitText(text, face, max_width)
     local w = RenderText:sizeUtf8Text(0, max_width, face, text, true, false).x
