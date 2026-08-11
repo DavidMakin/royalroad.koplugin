@@ -39,6 +39,9 @@ function M:_buildManageItemTable()
         elseif story.partial_of then
             display_title = display_title .. T(_(" [%1/%2 ch]"), #(story.chapter_urls or {}), story.partial_of)
         end
+        if story.excluded then
+            display_title = display_title .. _(" [excluded]")
+        end
         if story.unread_new_count and story.unread_new_count > 0 then
             display_title = display_title .. T(_(" [+%1 new]"), story.unread_new_count)
         end
@@ -222,6 +225,13 @@ function M:manageDownloads()
                 end }},
                 {{ text = _("Check for updates"), callback = function()
                     close() downloader:checkSingleStoryForUpdates(story.fiction_id)
+                end }},
+                {{ text = story.excluded and _("Include in updates") or _("Exclude from updates"), callback = function()
+                    close()
+                    story.excluded = not story.excluded
+                    story.unread_new_count = nil
+                    downloader:saveSettings()
+                    downloader:refreshManageMenu()
                 end }},
                 {{ text = _("Delete"), callback = function()
                     close() downloader:deleteStoryCompletely(story.fiction_id)

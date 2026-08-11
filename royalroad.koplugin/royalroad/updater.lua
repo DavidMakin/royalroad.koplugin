@@ -196,6 +196,9 @@ function M:performUpdateCheck()
                         if #errors > 0 then
                             msg = msg .. "\n\n" .. T(_("Failed to check: %1"), table.concat(errors, ", "))
                         end
+                        if excluded_count > 0 then
+                            msg = msg .. "\n\n" .. T(_("Skipped %1 excluded stories."), excluded_count)
+                        end
                         UIManager:show(InfoMessage:new{ text = msg })
                         return
                     end

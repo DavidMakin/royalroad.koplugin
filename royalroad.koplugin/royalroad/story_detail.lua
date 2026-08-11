@@ -37,6 +37,7 @@ function M:showStoryOptions(fiction_id)
 
     local epub_exists = story.epub_path and lfs.attributes(story.epub_path, "mode") ~= nil
     local has_dupes = urls.hasDuplicateKeys(story.chapter_urls or {})
+    local is_excluded = story.excluded == true
     if epub_exists and story.missing then
         story.missing = nil
         self:saveSettings()
@@ -221,6 +222,18 @@ function M:showStoryOptions(fiction_id)
         }})
     end
 
+    table.insert(buttons, {{
+        text = is_excluded and _("\u{25C9} Include in updates") or _("\u{2298} Exclude from updates"),
+        callback = function()
+            story.excluded = not is_excluded
+            story.unread_new_count = nil
+            self:saveSettings()
+            UIManager:close(self.story_detail_dialog)
+            UIManager:setDirty(nil, "ui")
+            if self.manage_menu then self:refreshManageMenu() end
+        end,
+    }})
+
     if story.partial_of then
         table.insert(buttons, {{
             text = T(_("\u{25B6} Resume download (%1/%2 ch)"), #(story.chapter_urls or {}), story.partial_of),
@@ -313,6 +326,15 @@ function M:showStoryOptions(fiction_id)
             face = Font:getFace("smallffont"),
             width = dialog_w - Size.padding.large * 2,
             fgcolor = Blitbuffer.COLOR_RED,
+        })
+    end
+    if is_excluded then
+        table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.small })
+        table.insert(main_vgroup, TextBoxWidget:new{
+            text = _("Excluded from automatic updates — tap \"Include in updates\" to re-enable."),
+            face = Font:getFace("smallffont"),
+            width = dialog_w - Size.padding.large * 2,
+            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })
     end
     table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })

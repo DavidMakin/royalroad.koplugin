@@ -27,7 +27,7 @@ function M:showBatchActions()
         selected[fiction_id] = false
         table.insert(item_table, {
             fiction_id = fiction_id,
-            text       = "○  " .. (story.title or fiction_id),
+            text       = "○  " .. (story.title or fiction_id) .. (story.excluded and _(" [excluded]") or ""),
             title      = story.title or fiction_id,
         })
     end

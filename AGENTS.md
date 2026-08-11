@@ -76,6 +76,14 @@ KOReader plugins follow a specific structure:
 - Royal Road serves chapter lists in `window.chapters` JSON but **always truncated** (verified: a 261-chapter story serves ~184 entries). A single HTML fetch is never a complete chapter list. Anything that decides to *drop* chapters based on the live list must guard: treat the live list as authoritative only when `#current >= #deduped_stored`.
 - `repairStoryDuplicates(fiction_id)` (in `repair.lua`) rebuilds a corrupted EPUB: pairs EPUB chapters with `story.chapter_urls` by index, dedupes by identity key (last occurrence wins), and — only when the live list is provably complete — drops chapters deleted from the site. Preserves cover and reading position.
 
+### Story Exclusion (skip in "Update all")
+
+- A story is excluded when its settings carry `story.excluded == true`; the field persists with all other story settings (any full-field settings save round-trip preserves it, no per-field copy needed).
+- Excluded stories are **skipped by "Update all"** (`performUpdateCheck` in `updater.lua` filters them out of `targets`, counts them, and reports "Skipped N excluded stories" when the rest are up to date; exits early with an info message when every story is excluded). Individual updates (`checkSingleStoryForUpdates`, the per-story "Check for updates" button) are **not** filtered — exclusion only affects the batch path.
+- Toggle points: story options dialog (`story_detail.lua`, button after the download actions) and the hold menu in the downloads list (`downloads_ui.lua`). Both clear `story.unread_new_count` on exclude so stale "+N new" badges don't persist.
+- Visual indicators (plugin's own story list UI only — KOReader's library renders covers via `FileManagerBookInfo` and is untouched): a dark ⊘ badge overlaid on the cover's top-right corner (via `OverlapGroup` child with `overlap_align = "right"` in `widgets.lua`, both `StoryListItem` and `StoryCoverCell`), a grayed-out title, and a `[excluded]` suffix in the downloads list and batch-select list.
+- KOReader `OverlapGroup` positions children via `overlap_align` (`"left"/"center"/"right"`), never via an `align` field; vertical offset is always top. Mirrored (RTL) UIs flip `"right"` to `"left"` automatically — do not compensate manually.
+
 ### HTTP Fetching
 - Uses Lua's `socket.http` library
 - Rate limiting: 1.5s between requests

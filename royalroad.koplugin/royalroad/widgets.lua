@@ -9,6 +9,7 @@ local HorizontalGroup = require("ui/widget/horizontalgroup")
 local HorizontalSpan = require("ui/widget/horizontalspan")
 local ImageWidget    = require("ui/widget/imagewidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
+local OverlapGroup   = require("ui/widget/overlapgroup")
 local RenderText     = require("ui/rendertext")
 local Size           = require("ui/size")
 local TextBoxWidget  = require("ui/widget/textboxwidget")
@@ -50,6 +51,39 @@ end
 local function extractEpubCover(epub_path)
     local FileManagerBookInfo = require("apps/filemanager/filemanagerbookinfo")
     return FileManagerBookInfo:getCoverImage(nil, epub_path)
+end
+
+-- Overlay a small "excluded" badge (⊘) on the top-right corner of a cover.
+-- Only used inside this plugin's own story list UI; the KOReader library
+-- renders covers via FileManagerBookInfo and is never passed a badge.
+-- Verified against frontend/ui/widget/overlapgroup.lua: children position via
+-- overlap_align ("left"/"center"/"right"; default paints at top-left), vertical
+-- offset is always 0 (top). "right" lands the badge in the top-right corner
+-- and flips to top-left automatically in mirrored (RTL) UIs.
+local function excludedBadge(cover_widget, cover_w, cover_h)
+    if not (cover_w and cover_h and cover_w > 0 and cover_h > 0) then
+        return cover_widget
+    end
+    -- Self-sized chip: the glyph drives the frame size (no fixed dimen), so the
+    -- dark-gray backing hugs the symbol instead of forming a big circle around it.
+    local badge = FrameContainer:new{
+        margin        = screen:scaleBySize(3),
+        padding       = screen:scaleBySize(2),
+        bordersize    = 1,
+        radius        = screen:scaleBySize(4),
+        background    = Blitbuffer.COLOR_DARK_GRAY,
+        overlap_align = "right",
+        TextWidget:new{
+            text    = "\u{2298}",
+            face    = Font:getFace("smallinfofont"),
+            fgcolor = Blitbuffer.COLOR_WHITE,
+        },
+    }
+    return OverlapGroup:new{
+        dimen = Geom:new{ w = cover_w, h = cover_h },
+        cover_widget,
+        badge,
+    }
 end
 
 local StoryListItem = InputContainer:extend{
@@ -101,6 +135,9 @@ function StoryListItem:init()
         background = self.story.cover_bb and Blitbuffer.COLOR_WHITE or Blitbuffer.gray(0.6),
         inner_cover,
     }
+    if self.story.excluded then
+        cover_widget = excludedBadge(cover_widget, STORY_COVER_WIDTH, STORY_COVER_HEIGHT)
+    end
 
     local text_width = self.width - STORY_COVER_WIDTH - STORY_ITEM_PAD * 3
     local story = self.story
@@ -111,7 +148,7 @@ function StoryListItem:init()
         face      = Font:getFace("smalltfont", 16),
         max_width = text_width,
         bold      = true,
-        fgcolor   = story.missing and Blitbuffer.COLOR_DARK_GRAY or nil,
+        fgcolor   = (story.missing or story.excluded) and Blitbuffer.COLOR_DARK_GRAY or nil,
     })
     if story.author and story.author ~= "" then
         table.insert(info_group, VerticalSpan:new{ width = 2 })
@@ -260,6 +297,9 @@ function StoryCoverCell:init()
         background = self.story.cover_bb and Blitbuffer.COLOR_WHITE or Blitbuffer.gray(0.6),
         inner_cover,
     }
+    if self.story.excluded then
+        cover_widget = excludedBadge(cover_widget, self.cover_width, self.cover_height)
+    end
 
     local title_height = math.ceil(14 * 1.3) * 2
     local inner_h = self.cover_height + (self.show_title and (4 + title_height) or 0)
@@ -272,7 +312,7 @@ function StoryCoverCell:init()
             width     = self.cover_width,
             height    = title_height,
             alignment = "center",
-            fgcolor   = self.story.missing and Blitbuffer.COLOR_DARK_GRAY or nil,
+            fgcolor   = (self.story.missing or self.story.excluded) and Blitbuffer.COLOR_DARK_GRAY or nil,
         }
         table.insert(content, VerticalSpan:new{ width = 4 })
         table.insert(content, title_widget)
