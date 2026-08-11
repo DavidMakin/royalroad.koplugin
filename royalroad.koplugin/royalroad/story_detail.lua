@@ -22,6 +22,7 @@ local ffiUtil         = require("ffi/util")
 local T               = ffiUtil.template
 local _               = require("gettext")
 local C               = require("royalroad/constants")
+local urls            = require("royalroad/urls")
 
 local M = {}
 
@@ -35,6 +36,7 @@ function M:showStoryOptions(fiction_id)
     end
 
     local epub_exists = story.epub_path and lfs.attributes(story.epub_path, "mode") ~= nil
+    local has_dupes = urls.hasDuplicateKeys(story.chapter_urls or {})
     if epub_exists and story.missing then
         story.missing = nil
         self:saveSettings()
@@ -197,6 +199,17 @@ function M:showStoryOptions(fiction_id)
             end,
         }})
 
+        if has_dupes then
+            table.insert(buttons, {{
+                text = _("Repair duplicate chapters"),
+                callback = function()
+                    UIManager:close(self.story_detail_dialog)
+                    UIManager:setDirty(nil, "ui")
+                    self:repairStoryDuplicates(fiction_id)
+                end,
+            }})
+        end
+
     else
         table.insert(buttons, {{
             text = _("\u{2193} EPUB missing - Redownload"),
@@ -293,6 +306,15 @@ function M:showStoryOptions(fiction_id)
 
     local main_vgroup = VerticalGroup:new{ align = "left" }
     table.insert(main_vgroup, header)
+    if has_dupes then
+        table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.small })
+        table.insert(main_vgroup, TextBoxWidget:new{
+            text = _("Duplicate chapters detected — use \"Repair duplicate chapters\" to fix this EPUB."),
+            face = Font:getFace("smallffont"),
+            width = dialog_w - Size.padding.large * 2,
+            fgcolor = Blitbuffer.COLOR_RED,
+        })
+    end
     table.insert(main_vgroup, VerticalSpan:new{ width = Size.padding.large })
     table.insert(main_vgroup, btn_table)
 
@@ -352,8 +374,12 @@ function M:checkSingleStoryForUpdates(fiction_id)
         if update then
             self:showUpdateMenu({ update })
         else
+            local msg = T(_("%1 is up to date!\n\n%2 chapters"), story.title, #(story.chapter_urls or {}))
+            if urls.hasDuplicateKeys(story.chapter_urls or {}) then
+                msg = msg .. "\n\n" .. _("Duplicate chapters detected — open story options and use \"Repair duplicate chapters\".")
+            end
             UIManager:show(InfoMessage:new{
-                text = T(_("%1 is up to date!\n\n%2 chapters"), story.title, #(story.chapter_urls or {})),
+                text = msg,
             })
         end
     end)

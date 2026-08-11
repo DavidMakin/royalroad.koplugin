@@ -12,8 +12,29 @@ KOReader plugin for downloading web fiction as EPUB files:
 ```
 royalroad.koplugin/
 ├── _meta.lua          # Plugin metadata
-└── main.lua           # Main implementation
+├── main.lua           # Main implementation (loads modules below)
+├── test_repair.lua    # Standalone unit tests: lua test_repair.lua
+└── royalroad/
+    ├── constants.lua      # URLs, timeouts, rate limits
+    ├── http.lua           # fetchPage / fetchImage with retry + backoff
+    ├── parser.lua         # HTML/JSON parsing (story, chapters, content)
+    ├── urls.lua           # Chapter identity keying (fiction_id:chapter_id)
+    ├── downloader.lua     # Download orchestration
+    ├── epub.lua           # EPUB read/write (saveAsEPUB, extractChaptersFromEPUB)
+    ├── repair.lua         # EPUB repair (dedupe + drop deleted chapters)
+    ├── updater.lua        # Update detection + UI
+    ├── story_detail.lua   # Story options dialog
+    └── widgets.lua        # Shared widget helpers
 ```
+
+## Git & Commits (MANDATORY)
+
+**Commits to this repo are ALWAYS made by the user under the identity DavidMakin.**
+
+- Never run `git commit` yourself. Stage files and hand over the exact commit command to the user.
+- The user sometimes works from a work PC that switches git to a work admin identity — always verify the configured identity (`git config user.name` / `user.email`) before committing on their behalf, and never commit under the work identity.
+- Always attribute the bug reporter when committing a fix for an issue: add a `Co-authored-by:` trailer with their GitHub identity.
+
 
 ## Development Commands
 
@@ -47,6 +68,13 @@ KOReader plugins follow a specific structure:
 - Integrates with KOReader's menu system via `addToMainMenu()`
 - Uses KOReader UI components: `InputDialog`, `InfoMessage`
 - Handles settings persistence via `LuaSettings`
+
+### Chapter Identity & EPUB Repair
+
+- Royal Road chapter URLs embed a stable site-wide id: `/fiction/{fiction_id}/{slug}/chapter/{chapter_id}/{chapter_slug}`. The `{slug}` changes when an author renames/reorganises their fiction; `chapter_id` never does.
+- **Never compare full URLs for identity.** Use `urls.chapterKey()` (`royalroad/urls.lua`) which returns `fiction_id:chapter_id` and falls back to the raw URL for legacy formats. This is what prevents renamed chapters from being re-downloaded as "new" (duplicating the EPUB).
+- Royal Road serves chapter lists in `window.chapters` JSON but **always truncated** (verified: a 261-chapter story serves ~184 entries). A single HTML fetch is never a complete chapter list. Anything that decides to *drop* chapters based on the live list must guard: treat the live list as authoritative only when `#current >= #deduped_stored`.
+- `repairStoryDuplicates(fiction_id)` (in `repair.lua`) rebuilds a corrupted EPUB: pairs EPUB chapters with `story.chapter_urls` by index, dedupes by identity key (last occurrence wins), and — only when the live list is provably complete — drops chapters deleted from the site. Preserves cover and reading position.
 
 ### HTTP Fetching
 - Uses Lua's `socket.http` library
@@ -152,4 +180,5 @@ All shell scripts (`.sh` files and inline shell in CI workflows) must pass `shel
 - No official APIs - relies on HTML scraping
 - HTML structure changes will break parsers
 - Paywalled/restricted content not supported
-- No resume for interrupted downloads
+- Royal Road's `window.chapters` JSON is truncated server-side, so downloads may miss late chapters if a story page changes mid-download
+- EPUB repair (dedupe) is offline-safe; dropping site-deleted chapters requires a provably complete live chapter list, which the site rarely serves — when the list is incomplete the repair keeps all chapters

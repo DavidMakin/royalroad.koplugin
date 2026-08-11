@@ -27,6 +27,7 @@ local M = {}
 
 local C            = require("royalroad/constants")
 local fitText      = require("royalroad/widgets").fitText
+local urls         = require("royalroad/urls")
 local SCHEDULE_DELAY = C.NETWORK.SCHEDULE_DELAY
 
 function M:_computeStoryUpdate(fiction_id, story)
@@ -38,18 +39,18 @@ function M:_computeStoryUpdate(fiction_id, story)
     local current_count = #current_urls
 
     local fetched_set = {}
-    for _, u in ipairs(story.chapter_urls or {}) do fetched_set[u] = true end
+    for _, u in ipairs(story.chapter_urls or {}) do fetched_set[urls.chapterKey(u)] = true end
 
     local known_set = {}
-    for _, u in ipairs(story.chapter_urls or {}) do known_set[u] = true end
-    for _, u in ipairs(story.queued_chapter_urls or {}) do known_set[u] = true end
+    for _, u in ipairs(story.chapter_urls or {}) do known_set[urls.chapterKey(u)] = true end
+    for _, u in ipairs(story.queued_chapter_urls or {}) do known_set[urls.chapterKey(u)] = true end
 
     -- Find the last position of any known URL in current_urls.
     -- This correctly handles partial/range-limited downloads where
     -- old skipped chapters appear before known ones in the full URL list.
     local last_known_pos = 0
     for i, u in ipairs(current_urls) do
-        if known_set[u] then
+        if known_set[urls.chapterKey(u)] then
             last_known_pos = i
         end
     end
@@ -59,7 +60,7 @@ function M:_computeStoryUpdate(fiction_id, story)
     -- detected as "new" and appended to the end of the EPUB.
     local new_urls_list = {}
     for i = last_known_pos + 1, #current_urls do
-        if not known_set[current_urls[i]] then
+        if not known_set[urls.chapterKey(current_urls[i])] then
             table.insert(new_urls_list, current_urls[i])
         end
     end
@@ -67,7 +68,7 @@ function M:_computeStoryUpdate(fiction_id, story)
 
     local missing_from_epub = 0
     for _, u in ipairs(story.queued_chapter_urls or {}) do
-        if not fetched_set[u] then missing_from_epub = missing_from_epub + 1 end
+        if not fetched_set[urls.chapterKey(u)] then missing_from_epub = missing_from_epub + 1 end
     end
 
     if new_chapters == 0 and missing_from_epub == 0 then
@@ -575,12 +576,12 @@ function M:updateStory(fiction_id, current_urls, on_complete, batch)
 
     local stored_set = {}
     for _, url in ipairs(story.chapter_urls or {}) do
-        stored_set[url] = true
+        stored_set[urls.chapterKey(url)] = true
     end
 
     local new_urls = {}
     for _, url in ipairs(current_urls) do
-        if not stored_set[url] then
+        if not stored_set[urls.chapterKey(url)] then
             table.insert(new_urls, url)
         end
     end

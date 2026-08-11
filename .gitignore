@@ -22,3 +22,7 @@ crash.log
 test_*.lua
 
 .opencode
+.serena
+.omo
+.cortexkit
+.agent/

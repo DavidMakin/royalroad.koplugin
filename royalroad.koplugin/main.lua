@@ -23,6 +23,7 @@ local module_names = {
     "royalroad/search_ui",
     "royalroad/downloader",
     "royalroad/epub",
+    "royalroad/repair",
     "royalroad/updater",
     "royalroad/story_detail",
 }
