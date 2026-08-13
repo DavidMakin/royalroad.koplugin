@@ -86,7 +86,7 @@ KOReader plugins follow a specific structure:
 ### New-Chapters Ribbon ("+N new" badge)
 
 - When a download adds chapters, the download path sets `unread_new_count` (`entry.unread_new_count += #new_chapters` in `updater.lua`); the story then shows a blue corner ribbon with a white plus (SVG `icons/new_ribbon.svg`, same NanoSVG-primitive constraints and `ImageWidget` rendering as the exclusion ribbon) in `widgets.lua` `newBadge()`, positioned on the **bottom-right** corner — opposite the exclusion ribbon (top-right) so both can coexist.
-- The ribbon persists until the **next successful update check** — per-story (`checkSingleStoryForUpdates`) or batch (`performUpdateCheck`) — clears `unread_new_count`. A failed fetch keeps the flag. Opening story options does **not** clear it (viewing options is not an acknowledgement).
+- The ribbon is cleared the moment a check is **selected** — per-story (`checkSingleStoryForUpdates`) or batch (`performUpdateCheck`) clears `unread_new_count` at check start, before any fetch, so the badge acknowledges the user's intent rather than the fetch outcome. A failed fetch does **not** restore it. Opening story options does **not** clear it (viewing options is not an acknowledgement).
 - `performUpdateCheck` (`updater.lua`) filters `story.excluded == true` stories out of `targets`, counts them in `excluded_count`, reports "Skipped N excluded stories" alongside the up-to-date message, and shows "All stories are excluded from updates." when every story is excluded.
 - KOReader `OverlapGroup` positions children via `overlap_align` (`"left"/"center"/"right"`), never via an `align` field; vertical offset is always top. Mirrored (RTL) UIs flip `"right"` to `"left"` automatically — do not compensate manually.
 

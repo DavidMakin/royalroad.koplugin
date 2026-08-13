@@ -106,6 +106,22 @@ end
 
 function M:performUpdateCheck()
     NetworkMgr:runWhenOnline(function()
+        -- Selecting the check acknowledges the new-chapter state immediately:
+        -- clear the flag that drives the "new" ribbon (widgets.lua newBadge)
+        -- for every story as soon as the batch check starts, regardless of
+        -- whether individual fetches succeed. If any updates are downloaded,
+        -- the download path re-sets unread_new_count per story.
+        local any_badge_cleared = false
+        for _, story in pairs(self.downloaded_stories) do
+            if story.unread_new_count then
+                story.unread_new_count = nil
+                any_badge_cleared = true
+            end
+        end
+        if any_badge_cleared then
+            self:saveSettings()
+        end
+
         local stories_with_updates = {}
         local errors = {}
 
@@ -236,16 +252,9 @@ function M:performUpdateCheck()
                     logger.warn("Royal Road: Failed to fetch story page for", fiction_id)
                 end
 
-                -- A successful check acknowledges the previous new-chapter
-                -- state (same rule as checkSingleStoryForUpdates): clear the
-                -- flag that drives the "new" ribbon (widgets.lua newBadge). A
-                -- failed fetch keeps the flag — the check didn't complete.
-                -- Downloading any updates found re-sets the flag via the
-                -- download path.
-                if not fetch_failed and story.unread_new_count then
-                    story.unread_new_count = nil
-                    self:saveSettings()
-                end
+                -- The "new" ribbon was already cleared when the batch check
+                -- started; downloading any updates found re-sets the flag via
+                -- the download path.
 
                 UIManager:scheduleIn(self.rate_limit_delay + SCHEDULE_DELAY, function()
                     process_next(idx + 1)
