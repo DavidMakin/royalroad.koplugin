@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- New-chapters ribbon: blue diagonal band with a white plus (+), matching
+     the "[+N new]" text badge in the downloads list. Mirrors the exclusion
+     ribbon geometry (icons/excluded_ribbon.svg) so both badges share the same
+     corner footprint, but sits on the opposite (bottom-right) corner.
+     Rendered by KOReader's NanoSVG, so only primitives are allowed: the plus
+     is two stroked lines, no <text>. Band is a 142x46 rect rotated 45deg
+     about the 100x100 square's centre; the plus strokes (34..66, max
+     perpendicular distance 19.5 incl. round caps) fit inside the band's
+     half-thickness of 23. -->
+
+<svg
+   width="100"
+   height="100"
+   viewBox="0 0 100 100"
+   version="1.1"
+   id="svg2"
+   sodipodi:docname="new_ribbon.svg"
+   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs2" />
+  <sodipodi:namedview
+     id="namedview2"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="8.69"
+     inkscape:cx="50"
+     inkscape:cy="50"
+     inkscape:window-width="1920"
+     inkscape:window-height="1127"
+     inkscape:window-x="3840"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <g
+     transform="matrix(-0.70710678,0.70710678,0.70710678,0.70710678,66.110472,-4.2549818)"
+     id="g1"
+     style="fill:#221bff;fill-opacity:0.79570025">
+    <rect
+       x="-21"
+       y="27"
+       width="142"
+       height="46"
+       fill="#3355ff"
+       fill-opacity="1"
+       id="rect1"
+       style="fill:#221bff;fill-opacity:0.79570025" />
+  </g>
+  <g
+     stroke="#ffffff"
+     stroke-width="7"
+     stroke-linecap="round"
+     fill="none"
+     id="g2"
+     transform="translate(14.38435,18.411968)">
+    <line
+       x1="50"
+       y1="34"
+       x2="50"
+       y2="66"
+       id="line1" />
+    <line
+       x1="34"
+       y1="50"
+       x2="66"
+       y2="50"
+       id="line2" />
+  </g>
+</svg>

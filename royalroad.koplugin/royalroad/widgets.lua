@@ -23,6 +23,15 @@ local _              = require("gettext")
 
 local screen = Device.screen
 
+-- Absolute path to the plugin's icons/ directory, derived from this module's
+-- own source file: KOReader resolves require() to absolute paths, so
+-- "@<abs>/royalroad.koplugin/royalroad/widgets.lua" yields the royalroad/
+-- dir and we step up one level to the plugin root (same idiom as
+-- royalroad/meta.lua and royalroad/epub.lua).
+local _plugin_dir = debug.getinfo(1, "S").source:match("^@(.+)/[^/]+$") or "."
+local EXCLUDED_RIBBON = _plugin_dir .. "/../icons/excluded_ribbon.svg"
+local NEW_RIBBON      = _plugin_dir .. "/../icons/new_ribbon.svg"
+
 local STORY_COVER_HEIGHT = screen and screen:scaleBySize(100) or 100
 local STORY_COVER_WIDTH  = math.floor(STORY_COVER_HEIGHT * 2 / 3)
 local STORY_ITEM_PAD     = screen and screen:scaleBySize(8) or 8
@@ -53,32 +62,81 @@ local function extractEpubCover(epub_path)
     return FileManagerBookInfo:getCoverImage(nil, epub_path)
 end
 
--- Overlay a small "excluded" badge (⊘) on the top-right corner of a cover.
--- Only used inside this plugin's own story list UI; the KOReader library
--- renders covers via FileManagerBookInfo and is never passed a badge.
--- Verified against frontend/ui/widget/overlapgroup.lua: children position via
--- overlap_align ("left"/"center"/"right"; default paints at top-left), vertical
--- offset is always 0 (top). "right" lands the badge in the top-right corner
--- and flips to top-left automatically in mirrored (RTL) UIs.
+-- Overlay an "excluded" ribbon on the top-right corner of a cover: a red
+-- diagonal band with a white ⊘, shipped as an SVG
+-- (icons/excluded_ribbon.svg). Only used inside this plugin's own story list
+-- UI; the KOReader library renders covers via FileManagerBookInfo and is
+-- never passed a badge.
+-- SVG, not glyphs: KOReader's widget system cannot rotate text or glyphs, so
+-- a diagonal ribbon is only possible as an SVG image. Verified against
+-- KOReader source:
+--  * RenderImage.RENDER_SVG_WITH_NANOSVG = true (MuPDF 1.13 is too old for
+--    our SVGs), so the file must stick to NanoSVG features: primitives and
+--    transform="rotate(...)" work, but <text> elements are never rendered —
+--    the ⊘ is therefore drawn as a stroked circle + slash line inside the SVG.
+--  * renderSVGImageFileWithNanoSVG keeps the image's aspect ratio and centers
+--    it in the requested box, so the SVG is square and width == height.
+--  * ImageWidget{file, width, height, alpha = true, is_icon = true} is the
+--    pattern simpleui.koplugin uses for plugin-shipped SVG icons.
+-- Placement: the badge ImageWidget is the OverlapGroup child directly —
+-- wrapping it in a FrameContainer would paint FrameContainer's default black
+-- border (bordersize = Size.border.window, color = COLOR_BLACK) around the
+-- ribbon and its margin would float the badge off the cover edge. As a bare
+-- child, the badge sits flush in the cover's corner. OverlapGroup
+-- overlap_align = "right" pins it to the top-right corner and flips to the
+-- top-left automatically in mirrored (RTL) UIs (verified in
+-- frontend/ui/widget/overlapgroup.lua).
+local function badgeSize(cover_h)
+    -- Scale with the cover so the ribbon reads on both the small list covers
+    -- (~scaleBySize(100) tall) and the full-screen grid covers, clamped so
+    -- tiny covers don't shrink the symbol below legibility.
+    return math.max(
+        screen:scaleBySize(30),
+        math.min(screen:scaleBySize(64), math.floor(cover_h * 0.35))
+    )
+end
+
+local function makeRibbonBadge(file, side)
+    return ImageWidget:new{
+        file    = file,
+        width   = side,
+        height  = side,
+        alpha   = true,
+        is_icon = true,
+    }
+end
+
 local function excludedBadge(cover_widget, cover_w, cover_h)
     if not (cover_w and cover_h and cover_w > 0 and cover_h > 0) then
         return cover_widget
     end
-    -- Self-sized chip: the glyph drives the frame size (no fixed dimen), so the
-    -- dark-gray backing hugs the symbol instead of forming a big circle around it.
-    local badge = FrameContainer:new{
-        margin        = screen:scaleBySize(3),
-        padding       = screen:scaleBySize(2),
-        bordersize    = 1,
-        radius        = screen:scaleBySize(4),
-        background    = Blitbuffer.COLOR_DARK_GRAY,
-        overlap_align = "right",
-        TextWidget:new{
-            text    = "\u{2298}",
-            face    = Font:getFace("smallinfofont"),
-            fgcolor = Blitbuffer.COLOR_WHITE,
-        },
+    local badge = makeRibbonBadge(EXCLUDED_RIBBON, badgeSize(cover_h))
+    badge.overlap_align = "right"
+    return OverlapGroup:new{
+        dimen = Geom:new{ w = cover_w, h = cover_h },
+        cover_widget,
+        badge,
     }
+end
+
+-- "New chapters" ribbon on the bottom-right corner — the corner opposite the
+-- exclusion ribbon, so a story can carry both badges at once. Shown whenever
+-- unread_new_count > 0, which is set when new chapters are downloaded and
+-- cleared by the next update check (individual or "Update all", see
+-- updater.lua / story_detail.lua).
+-- Positioned with overlap_offset {cover_w - side, cover_h - side} — OverlapGroup reads
+-- numeric indices [1]/[2], NOT named x/y keys (overlapgroup.lua paintTo).
+-- instead of overlap_align: OverlapGroup has no "bottom" alignment, but the
+-- offset is RTL-safe because paintTo() mirrors only the x-offset
+-- (offset[1] = size.w - w - offset[1]), which maps cover_w - side to 0 — so
+-- the badge lands bottom-right in LTR and bottom-left in RTL, symmetric.
+local function newBadge(cover_widget, cover_w, cover_h)
+    if not (cover_w and cover_h and cover_w > 0 and cover_h > 0) then
+        return cover_widget
+    end
+    local side  = badgeSize(cover_h)
+    local badge = makeRibbonBadge(NEW_RIBBON, side)
+    badge.overlap_offset = { cover_w - side, cover_h - side }
     return OverlapGroup:new{
         dimen = Geom:new{ w = cover_w, h = cover_h },
         cover_widget,
@@ -137,6 +195,9 @@ function StoryListItem:init()
     }
     if self.story.excluded then
         cover_widget = excludedBadge(cover_widget, STORY_COVER_WIDTH, STORY_COVER_HEIGHT)
+    end
+    if (self.story.unread_new_count or 0) > 0 then
+        cover_widget = newBadge(cover_widget, STORY_COVER_WIDTH, STORY_COVER_HEIGHT)
     end
 
     local text_width = self.width - STORY_COVER_WIDTH - STORY_ITEM_PAD * 3
@@ -299,6 +360,9 @@ function StoryCoverCell:init()
     }
     if self.story.excluded then
         cover_widget = excludedBadge(cover_widget, self.cover_width, self.cover_height)
+    end
+    if (self.story.unread_new_count or 0) > 0 then
+        cover_widget = newBadge(cover_widget, self.cover_width, self.cover_height)
     end
 
     local title_height = math.ceil(14 * 1.3) * 2

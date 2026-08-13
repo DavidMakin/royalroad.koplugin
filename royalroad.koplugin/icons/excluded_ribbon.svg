@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="100"
+   height="100"
+   viewBox="0 0 100 100"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="excluded_ribbon.svg"
+   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="8.69"
+     inkscape:cx="50.057537"
+     inkscape:cy="50"
+     inkscape:window-width="1920"
+     inkscape:window-height="1127"
+     inkscape:window-x="3840"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <!-- "Excluded from updates" corner ribbon for story covers.
+       Constrained to what KOReader's SVG renderer (NanoSVG) supports:
+       transform="rotate(...)" and rect/circle/line primitives; no <text>. -->
+  <!-- Diagonal red band: a rect spanning the full diagonal
+       (142 > 100*sqrt(2)) rotated 45 degrees about the centre, so its ends
+       clip at the square edges like a corner ribbon. 45 deg (not -45): the
+       band falls left-to-right (\), which mirrors it toward the cover's
+       right-hand corner placement. -->
+  <g
+     transform="rotate(45,51.432652,50.708499)"
+     id="g1"
+     style="stroke:none;stroke-opacity:0.79627073;fill:#ff1b1b;fill-opacity:0.79629904">
+    <rect
+       x="-21"
+       y="5"
+       width="142"
+       height="46"
+       fill="#ff3333"
+       id="rect1"
+       style="stroke:none;stroke-opacity:0.79627073;fill:#ff1b1b;fill-opacity:0.79629904" />
+  </g>
+  <!-- The ⊘ (U+2298) symbol drawn as primitives: a stroked circle with a
+       45-degree slash (upper-left to lower-right, as in the font glyph).
+       Outer stroke edge (18.5 units) stays inside the band's half-thickness
+       (23 units), so the symbol sits fully on the ribbon. -->
+  <circle
+     cx="66.265823"
+     cy="33.849251"
+     r="15"
+     fill="none"
+     stroke="#ffffff"
+     stroke-width="7"
+     id="circle1"
+     style="stroke-width:5;stroke-dasharray:none" />
+  <line
+     x1="61.663139"
+     y1="29.096972"
+     x2="70.71891"
+     y2="38.267818"
+     stroke="#ffffff"
+     stroke-width="5.59578"
+     id="line1"
+     style="stroke-width:5;stroke-dasharray:none" />
+</svg>
