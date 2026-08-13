@@ -30,10 +30,11 @@ function M:showStoryOptions(fiction_id)
     local story = self.downloaded_stories[fiction_id]
     if not story then return end
 
-    if story.unread_new_count then
-        story.unread_new_count = nil
-        self:saveSettings()
-    end
+    -- Note: unread_new_count is deliberately NOT cleared here. The "new
+    -- chapters" ribbon (widgets.lua newBadge) is meant to persist until the
+    -- next update check for this story (checkSingleStoryForUpdates) or an
+    -- "Update all" pass; opening the options dialog does not acknowledge
+    -- the new chapters.
 
     local epub_exists = story.epub_path and lfs.attributes(story.epub_path, "mode") ~= nil
     local has_dupes = urls.hasDuplicateKeys(story.chapter_urls or {})
@@ -391,6 +392,15 @@ function M:checkSingleStoryForUpdates(fiction_id)
                 text = _("Failed to fetch story page."),
             })
             return
+        end
+
+        -- A completed check acknowledges the current new-chapter state: clear
+        -- the flag that drives the "new" ribbon (widgets.lua newBadge). If
+        -- the check finds updates and the user downloads them, the download
+        -- path re-sets unread_new_count to the number of new chapters.
+        if story.unread_new_count then
+            story.unread_new_count = nil
+            self:saveSettings()
         end
 
         if update then

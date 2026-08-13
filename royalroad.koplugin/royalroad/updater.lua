@@ -110,8 +110,13 @@ function M:performUpdateCheck()
         local errors = {}
 
         local targets = {}
+        local excluded_count = 0
         for fiction_id, story in pairs(self.downloaded_stories) do
-            table.insert(targets, { fiction_id = fiction_id, story = story })
+            if story.excluded == true then
+                excluded_count = excluded_count + 1
+            else
+                table.insert(targets, { fiction_id = fiction_id, story = story })
+            end
         end
         local total = #targets
         local cancelled = false
@@ -192,7 +197,13 @@ function M:performUpdateCheck()
                 end
                 UIManager:scheduleIn(SCHEDULE_DELAY, function()
                     if #stories_with_updates == 0 then
-                        local msg = _("All stories are up to date!")
+                        local msg
+                        if total == 0 then
+                            -- Nothing left to check: every story is excluded.
+                            msg = _("All stories are excluded from updates.")
+                        else
+                            msg = _("All stories are up to date!")
+                        end
                         if #errors > 0 then
                             msg = msg .. "\n\n" .. T(_("Failed to check: %1"), table.concat(errors, ", "))
                         end
@@ -223,6 +234,17 @@ function M:performUpdateCheck()
                 elseif fetch_failed then
                     table.insert(errors, story.title)
                     logger.warn("Royal Road: Failed to fetch story page for", fiction_id)
+                end
+
+                -- A successful check acknowledges the previous new-chapter
+                -- state (same rule as checkSingleStoryForUpdates): clear the
+                -- flag that drives the "new" ribbon (widgets.lua newBadge). A
+                -- failed fetch keeps the flag — the check didn't complete.
+                -- Downloading any updates found re-sets the flag via the
+                -- download path.
+                if not fetch_failed and story.unread_new_count then
+                    story.unread_new_count = nil
+                    self:saveSettings()
                 end
 
                 UIManager:scheduleIn(self.rate_limit_delay + SCHEDULE_DELAY, function()
