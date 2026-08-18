@@ -868,6 +868,9 @@ function M:rebuildEPUBWithNewChapters(state)
         entry.queued_chapter_urls = nil
         entry.unread_new_count = (entry.unread_new_count or 0) + #state.new_chapters
         self:saveSettingsDebounced()
+        -- Rebuild the story list so the new-chapters ribbon appears
+        -- immediately without requiring a plugin restart.
+        self:refreshManageMenu()
     end
 
     self:_invalidateCoverCache(state.fiction_id)

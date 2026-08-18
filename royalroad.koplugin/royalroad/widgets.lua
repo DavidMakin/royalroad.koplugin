@@ -144,6 +144,19 @@ local function newBadge(cover_widget, cover_w, cover_h)
     }
 end
 
+-- Apply whichever corner ribbons are active for a story to a cover widget.
+-- Call this once at widget construction; rebuild the widget (via
+-- refreshManageMenu) whenever story.excluded or story.unread_new_count changes.
+local function applyBadges(cover_widget, cover_w, cover_h, story)
+    if story.excluded then
+        cover_widget = excludedBadge(cover_widget, cover_w, cover_h)
+    end
+    if (story.unread_new_count or 0) > 0 then
+        cover_widget = newBadge(cover_widget, cover_w, cover_h)
+    end
+    return cover_widget
+end
+
 local StoryListItem = InputContainer:extend{
     story       = nil,
     width       = nil,
@@ -193,12 +206,7 @@ function StoryListItem:init()
         background = self.story.cover_bb and Blitbuffer.COLOR_WHITE or Blitbuffer.gray(0.6),
         inner_cover,
     }
-    if self.story.excluded then
-        cover_widget = excludedBadge(cover_widget, STORY_COVER_WIDTH, STORY_COVER_HEIGHT)
-    end
-    if (self.story.unread_new_count or 0) > 0 then
-        cover_widget = newBadge(cover_widget, STORY_COVER_WIDTH, STORY_COVER_HEIGHT)
-    end
+    cover_widget = applyBadges(cover_widget, STORY_COVER_WIDTH, STORY_COVER_HEIGHT, self.story)
 
     local text_width = self.width - STORY_COVER_WIDTH - STORY_ITEM_PAD * 3
     local story = self.story
@@ -358,12 +366,7 @@ function StoryCoverCell:init()
         background = self.story.cover_bb and Blitbuffer.COLOR_WHITE or Blitbuffer.gray(0.6),
         inner_cover,
     }
-    if self.story.excluded then
-        cover_widget = excludedBadge(cover_widget, self.cover_width, self.cover_height)
-    end
-    if (self.story.unread_new_count or 0) > 0 then
-        cover_widget = newBadge(cover_widget, self.cover_width, self.cover_height)
-    end
+    cover_widget = applyBadges(cover_widget, self.cover_width, self.cover_height, self.story)
 
     local title_height = math.ceil(14 * 1.3) * 2
     local inner_h = self.cover_height + (self.show_title and (4 + title_height) or 0)
@@ -424,6 +427,7 @@ return {
     StoryListItem    = StoryListItem,
     StoryCoverCell   = StoryCoverCell,
     extractEpubCover = extractEpubCover,
+    applyBadges      = applyBadges,
     fitText          = fitText,
     STORY_COVER_HEIGHT = STORY_COVER_HEIGHT,
     STORY_COVER_WIDTH  = STORY_COVER_WIDTH,
