@@ -83,6 +83,8 @@ function RoyalRoadDownloader:loadSettings()
     self.mosaic_cols        = self.settings:readSetting("mosaic_cols", C.DEFAULTS.MOSAIC_COLS)
     self.mosaic_rows        = self.settings:readSetting("mosaic_rows", C.DEFAULTS.MOSAIC_ROWS)
     self.mosaic_hide_title  = self.settings:readSetting("mosaic_hide_title", false)
+    self.auto_add_to_collection = self.settings:readSetting("auto_add_to_collection", false)
+    self.collection_name    = self.settings:readSetting("collection_name", C.DEFAULTS.COLLECTION_NAME)
     self._story_count = nil
     local dirty = false
     for fiction_id, story in pairs(self.downloaded_stories) do
@@ -119,6 +121,8 @@ function RoyalRoadDownloader:saveSettings()
     self.settings:saveSetting("mosaic_cols",       self.mosaic_cols)
     self.settings:saveSetting("mosaic_rows",       self.mosaic_rows)
     self.settings:saveSetting("mosaic_hide_title", self.mosaic_hide_title)
+    self.settings:saveSetting("auto_add_to_collection", self.auto_add_to_collection)
+    self.settings:saveSetting("collection_name",        self.collection_name)
     self.settings:flush()
     self._save_pending = false
 end

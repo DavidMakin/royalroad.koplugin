@@ -12,6 +12,61 @@ local _plugin_dir = debug.getinfo(1, "S").source:match("^@(.+)/[^/]+$") or "."
 
 local CSS = util.readFromFile(_plugin_dir .. "/royalroad.css") or ""
 
+local function ensureCollectionExists(ReadCollection, coll_name)
+    if not ReadCollection.coll[coll_name] then
+        ReadCollection:addCollection(coll_name)
+    end
+end
+
+-- Adds a single freshly-saved EPUB to the configured collection, if the
+-- "auto-add to collection" setting is enabled. Safe to call unconditionally
+-- after every successful save (new download or update) — it no-ops when
+-- disabled, and isFileInCollection() prevents duplicate/reordering churn.
+function M:addStoryToCollection(epub_path)
+    if not self.auto_add_to_collection then return end
+    local coll_name = self.collection_name
+    if not coll_name or coll_name:match("^%s*$") then return end
+
+    local ok, ReadCollection = pcall(require, "readcollection")
+    if not ok or not ReadCollection then
+        logger.warn("Royal Road: could not load readcollection module:", ReadCollection)
+        return
+    end
+
+    ensureCollectionExists(ReadCollection, coll_name)
+    if not ReadCollection:isFileInCollection(epub_path, coll_name) then
+        ReadCollection:addItem(epub_path, coll_name)
+        ReadCollection:write({ [coll_name] = true })
+    end
+end
+
+-- Backfills the configured collection with every currently-downloaded story.
+-- Called when the user turns "auto-add to collection" on, so existing
+-- downloads join the collection immediately rather than only future ones.
+function M:addAllStoriesToCollection()
+    local coll_name = self.collection_name
+    if not coll_name or coll_name:match("^%s*$") then return end
+
+    local ok, ReadCollection = pcall(require, "readcollection")
+    if not ok or not ReadCollection then
+        logger.warn("Royal Road: could not load readcollection module:", ReadCollection)
+        return
+    end
+
+    ensureCollectionExists(ReadCollection, coll_name)
+    local added = false
+    for _, story in pairs(self.downloaded_stories) do
+        if story.epub_path and not story.missing
+                and not ReadCollection:isFileInCollection(story.epub_path, coll_name) then
+            ReadCollection:addItem(story.epub_path, coll_name)
+            added = true
+        end
+    end
+    if added then
+        ReadCollection:write({ [coll_name] = true })
+    end
+end
+
 function M:ensureDownloadDir()
     local ok, err = util.makePath(self.download_dir)
     if not ok and err then
@@ -481,6 +536,8 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         self:_invalidateStoryCount()
         self:saveSettings()
         logger.info("Royal Road: Saved metadata for story", fiction_id, "with", #(chapter_urls or {}), "chapters")
+
+        self:addStoryToCollection(filename)
 
         local FileManager = require("apps/filemanager/filemanager")
         if FileManager.instance then

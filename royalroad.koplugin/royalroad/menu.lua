@@ -193,6 +193,28 @@ function M:showSettings()
                 }, function() return self.manage_sort_mode end, function(v) self.manage_sort_mode = v end)
             end,
         },
+        {
+            text_func = function()
+                return T(_("Auto-add to collection: %1"), self.auto_add_to_collection and _("On") or _("Off"))
+            end,
+            keep_menu_open = true,
+            callback = function()
+                showChoice(_("Auto-add downloaded stories to a collection"), {
+                    { true,  _("On") },
+                    { false, _("Off") },
+                }, function() return self.auto_add_to_collection end, function(v)
+                    self.auto_add_to_collection = v
+                    if v then self:addAllStoriesToCollection() end
+                end)
+            end,
+        },
+        {
+            text_func = function()
+                return T(_("Collection name: %1"), self.collection_name)
+            end,
+            keep_menu_open = true,
+            callback = function() self:setCollectionName() end,
+        },
     }
     settings_menu = Menu:new{
         title             = _("Settings"),
@@ -242,6 +264,40 @@ function M:setRateLimit()
                         if value and value >= 0 then
                             self.rate_limit_delay = value
                             self:saveSettings()
+                        end
+                        UIManager:close(dialog)
+                    end,
+                },
+            },
+        },
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
+end
+
+function M:setCollectionName()
+    local dialog
+    dialog = InputDialog:new{
+        title = _("Collection name"),
+        input = self.collection_name,
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    callback = function()
+                        UIManager:close(dialog)
+                    end,
+                },
+                {
+                    text = _("Save"),
+                    callback = function()
+                        local value = dialog:getInputText()
+                        if value and value:match("%S") then
+                            self.collection_name = value
+                            self:saveSettings()
+                            if self.auto_add_to_collection then
+                                self:addAllStoriesToCollection()
+                            end
                         end
                         UIManager:close(dialog)
                     end,

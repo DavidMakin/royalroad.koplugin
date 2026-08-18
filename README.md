@@ -106,6 +106,8 @@ Interrupted or partial downloads are also detected and resumed automatically.
 |---------|---------|-------------|
 | Download directory | `{KOReader data}/royalroad/` | Where EPUBs are saved |
 | Rate limit delay | 1.5 s | Pause between chapter requests |
+| Auto-add to collection | Off | Automatically adds every downloaded/updated story to a KOReader collection, so they can be browsed as a group (e.g. in a Simple UI collection widget) |
+| Collection name | `Royal Road` | Name of the collection stories are auto-added to. Turning auto-add on, or changing this name, immediately backfills all existing downloads into that collection |
 
 ---
 
