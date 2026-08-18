@@ -81,8 +81,8 @@ jobs:
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ steps.changelog.outputs.changelog }}
         run: |
-          NOTES="${{ steps.changelog.outputs.changelog }}"
           if gh release view "${GITHUB_REF_NAME}" &>/dev/null; then
             gh release edit "${GITHUB_REF_NAME}" \
               --draft=false \
