@@ -127,6 +127,30 @@ function M:extractChapterTitle(html)
     return title or "Chapter"
 end
 
+local function removeHiddenElements(content, html)
+    local hidden = {}
+
+    -- Find classes with display:none
+    for style in html:gmatch("<style.->(.-)</style>") do
+        for class in style:gmatch("%%.(%w[%w_-]*)%s*%b{}") do
+            local rule = style:match("%%." .. class .. "%s*(%b{})") 
+            if rule and rule:lower():find("display%s*:%s*none") then
+                hidden[class] = true
+            end
+        end
+    end
+
+    -- Remove elements with those classes
+    for class in pairs(hidden) do
+        content = content:gsub(
+            '<span([^>]-class="[^"]*%f[%w_%%-]' .. class .. '%f[^%w_%%-][^"]*"[^>]*)>.-</span>',
+            ""
+        )
+    end
+
+    return content
+end
+
 function M:extractChapterContent(html)
     local div_open = html:find('<div[^>]-class="[^"]-chapter%-content[^"]-"', 1)
     if not div_open then return nil end
@@ -150,7 +174,7 @@ function M:extractChapterContent(html)
             depth = depth - 1
             if depth == 0 then
                 local content = html:sub(content_start, close_pos - 1)
-                return content
+                return removeHiddenElements(content, html)
             end
             pos = close_pos + 6
         end
