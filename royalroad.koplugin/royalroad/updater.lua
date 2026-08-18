@@ -601,11 +601,9 @@ function M:updateStory(fiction_id, current_urls, on_complete, batch)
     end)
     if ok and doc_settings and doc_settings.data then
         old_position = {
-            last_xpointer    = doc_settings.data.last_xpointer,
-            bookmarks        = doc_settings.data.bookmarks,
-            highlights       = doc_settings.data.highlight,
-            percent_finished = doc_settings.data.percent_finished,
-            summary          = doc_settings.data.summary,
+            last_xpointer = doc_settings.data.last_xpointer,
+            bookmarks = doc_settings.data.bookmarks,
+            highlights = doc_settings.data.highlight,
         }
         logger.info("Royal Road: Saved reading position for restoration")
     end
@@ -880,43 +878,19 @@ function M:rebuildEPUBWithNewChapters(state)
     -- Restore reading position synchronously after EPUB rebuild.
     -- No timer delay needed since saveAsEPUB completed synchronously,
     -- avoiding races with KOReader's file detection.
-    local was_complete = state.old_position.summary and state.old_position.summary.status == "complete"
-    if state.old_position.last_xpointer or state.old_position.percent_finished or was_complete then
+    if state.old_position.last_xpointer then
         local ok, doc_settings = pcall(function()
             local entry = self.downloaded_stories[state.fiction_id]
             return DocSettings:open(entry and entry.epub_path or state.story.epub_path)
         end)
         if ok and doc_settings then
-            if state.old_position.last_xpointer then
-                doc_settings.data.last_xpointer = state.old_position.last_xpointer
-            end
+            doc_settings.data.last_xpointer = state.old_position.last_xpointer
             if state.old_position.bookmarks then
                 doc_settings.data.bookmarks = state.old_position.bookmarks
             end
             if state.old_position.highlights then
                 doc_settings.data.highlight = state.old_position.highlights
             end
-
-            -- KOReader only recomputes percent_finished/status once the book is
-            -- opened and rendered, so without this the file browser keeps showing
-            -- the pre-update (often 100%/finished) values after new chapters are
-            -- appended. Scale the percentage down by the chapter-count ratio as
-            -- an approximation, and drop a "complete" status back to "reading"
-            -- so the new chapters are visible as unread progress.
-            if state.old_position.percent_finished then
-                local old_total = #state.existing_chapters
-                local new_total = old_total + #state.new_chapters
-                if old_total > 0 and new_total > 0 then
-                    doc_settings.data.percent_finished =
-                        state.old_position.percent_finished * (old_total / new_total)
-                end
-            end
-            if was_complete then
-                local summary = doc_settings.data.summary or {}
-                summary.status = "reading"
-                doc_settings.data.summary = summary
-            end
-
             doc_settings:flush()
             logger.info("Royal Road: Restored reading position")
         end

@@ -29,10 +29,9 @@ return {
     },
 
     DEFAULTS = {
-        MOSAIC_COLS     = 3,
-        MOSAIC_ROWS     = 2,
-        VIEW_MODE       = "list",
-        SORT_MODE       = "title",
-        COLLECTION_NAME = "Royal Road",
+        MOSAIC_COLS  = 3,
+        MOSAIC_ROWS  = 2,
+        VIEW_MODE    = "list",
+        SORT_MODE    = "title",
     },
 }
