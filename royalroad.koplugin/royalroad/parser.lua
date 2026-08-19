@@ -132,8 +132,8 @@ local function removeHiddenElements(content, html)
 
     -- Find classes with display:none
     for style in html:gmatch("<style.->(.-)</style>") do
-        for class in style:gmatch("%%.(%w[%w_-]*)%s*%b{}") do
-            local rule = style:match("%%." .. class .. "%s*(%b{})") 
+        for class in style:gmatch("%.(%w[%w_-]*)%s*%b{}") do
+            local rule = style:match("%." .. class .. "%s*(%b{})")
             if rule and rule:lower():find("display%s*:%s*none") then
                 hidden[class] = true
             end
@@ -143,7 +143,7 @@ local function removeHiddenElements(content, html)
     -- Remove elements with those classes
     for class in pairs(hidden) do
         content = content:gsub(
-            '<span([^>]-class="[^"]*%f[%w_%%-]' .. class .. '%f[^%w_%%-][^"]*"[^>]*)>.-</span>',
+            '<span([^>]-class="[^"]*%f[%w_%-]' .. class .. '%f[^%w_%-][^"]*"[^>]*)>.-</span>',
             ""
         )
     end
