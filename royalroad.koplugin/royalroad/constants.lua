@@ -25,7 +25,6 @@ return {
     SEARCH = {
         MAX_RESULTS   = 20,
         URL_PATH      = "/fictions/search?title=",
-        PAGE_PARAM    = "&page=",
     },
 
     DEFAULTS = {

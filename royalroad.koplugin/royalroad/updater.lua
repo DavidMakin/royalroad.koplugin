@@ -9,7 +9,6 @@ local FrameContainer  = require("ui/widget/container/framecontainer")
 local Geom            = require("ui/geometry")
 local InfoMessage     = require("ui/widget/infomessage")
 local ProgressWidget  = require("ui/widget/progresswidget")
-local RenderText      = require("ui/rendertext")
 local Size            = require("ui/size")
 local TextBoxWidget   = require("ui/widget/textboxwidget")
 local TextWidget      = require("ui/widget/textwidget")
@@ -26,7 +25,6 @@ local _               = require("gettext")
 local M = {}
 
 local C            = require("royalroad/constants")
-local fitText      = require("royalroad/widgets").fitText
 local urls         = require("royalroad/urls")
 local SCHEDULE_DELAY = C.NETWORK.SCHEDULE_DELAY
 
@@ -152,6 +150,7 @@ function M:performUpdateCheck()
             text  = "",
             face  = face,
             width = text_w,
+            max_width = text_w,
         }
         local label_h = face.size + Size.padding.small
         local cancel_button = Button:new{
@@ -194,7 +193,7 @@ function M:performUpdateCheck()
 
         local function updateProgressDialog(idx, story_title)
             progress_label:setText(T(_("Checking %1 / %2"), idx, total))
-            title_label:setText(fitText(story_title, face, text_w))
+            title_label:setText(story_title)
             UIManager:setDirty(current_msg, "ui")
         end
 
@@ -491,11 +490,13 @@ function M:updateAllStories(stories_with_updates)
         text  = "",
         face  = label_face,
         width = text_width,
+        max_width = text_width,
     }
     local chapter_text = TextWidget:new{
         text  = "",
         face  = label_face,
         width = text_width,
+        max_width = text_width,
     }
     local progress_bar = ProgressWidget:new{
         width      = text_width,
@@ -560,8 +561,7 @@ function M:updateAllStories(stories_with_updates)
 
         local story = stories_with_updates[index]
         local prefix = T(_("Story %1/%2: "), index, total)
-        local title_space = text_width - RenderText:sizeUtf8Text(0, text_width, label_face, prefix, true, false).x
-        local label_text = prefix .. fitText(story.title, label_face, title_space)
+        local label_text = prefix .. story.title
         story_label:setText(label_text)
         UIManager:setDirty(progress_dialog, "ui")
         UIManager:scheduleIn(SCHEDULE_DELAY, function()
@@ -663,12 +663,12 @@ function M:downloadNewChapters(fiction_id, story, existing_chapters, new_urls, a
         local text_width = math.floor(Device.screen:getWidth() * 0.8) - padding * 2
         local face       = Font:getFace("smallinfofont")
         local prefix     = T(_("Updating: "))
-        local title_space = text_width - RenderText:sizeUtf8Text(0, text_width, face, prefix, true, false).x
 
         progress_text = TextWidget:new{
             text  = T(_("Downloading new chapter 1/%1"), total_new),
             face  = face,
             width = text_width,
+            max_width = text_width,
         }
         progress_bar = ProgressWidget:new{
             width      = text_width,
@@ -691,9 +691,10 @@ function M:downloadNewChapters(fiction_id, story, existing_chapters, new_urls, a
             VerticalGroup:new{
                 align = "left",
                 TextWidget:new{
-                    text  = prefix .. fitText(story.title, face, title_space),
+                    text  = prefix .. story.title,
                     face  = face,
                     width = text_width,
+                    max_width = text_width,
                 },
                 progress_text,
                 progress_bar,
@@ -757,9 +758,6 @@ function M:downloadNextNewChapter(state, i)
     end
 
     local chapter_str = T(_("Downloading new chapter %1/%2"), i, state.total_new)
-    if state.batch then
-        chapter_str = fitText(chapter_str, state.batch.label_face, state.batch.text_width)
-    end
     state.progress_text:setText(chapter_str)
     state.progress_bar:setPercentage(i / state.total_new)
     UIManager:setDirty(state.progress_dialog, "ui")

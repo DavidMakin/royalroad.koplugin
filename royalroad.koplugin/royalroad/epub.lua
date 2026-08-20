@@ -120,37 +120,6 @@ function M:saveAsHTML(fiction_id, story_title, author, chapters)
     end
 end
 
-function M:getImageDimensions(data, mime_type)
-    if not data or #data < 24 then return nil, nil end
-    if mime_type == "image/png" then
-        -- PNG: width at bytes 17-20, height at 21-24 (1-indexed), big-endian uint32
-        local w = data:byte(17) * 16777216 + data:byte(18) * 65536 + data:byte(19) * 256 + data:byte(20)
-        local h = data:byte(21) * 16777216 + data:byte(22) * 65536 + data:byte(23) * 256 + data:byte(24)
-        return w, h
-    elseif mime_type == "image/jpeg" then
-        -- JPEG: scan for SOF markers (0xFF 0xC0/0xC1/0xC2)
-        local i = 1
-        while i <= #data - 8 do
-            if data:byte(i) == 0xFF then
-                local marker = data:byte(i + 1)
-                if marker == 0xC0 or marker == 0xC1 or marker == 0xC2 then
-                    local h = data:byte(i + 5) * 256 + data:byte(i + 6)
-                    local w = data:byte(i + 7) * 256 + data:byte(i + 8)
-                    return w, h
-                elseif marker ~= 0xFF then
-                    local seg_len = data:byte(i + 2) * 256 + data:byte(i + 3)
-                    i = i + 2 + seg_len
-                else
-                    i = i + 1
-                end
-            else
-                i = i + 1
-            end
-        end
-    end
-    return nil, nil
-end
-
 function M:escapeXML(text)
     if not text then return "" end
     return util.htmlEscape(text)
@@ -240,7 +209,7 @@ function M:extractChaptersFromEPUB(epub_path)
 end
 
 -- Builds manifest/spine/nav structures for OPF, NCX and nav.xhtml.
--- Returns: manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, first_chapter_file
+-- Returns: manifest_items, spine_items, nav_points, nav_entries, nav_landmarks
 function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
     local manifest_items = {}
     local spine_items    = {}
@@ -308,7 +277,7 @@ function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
     table.insert(manifest_items, '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>')
     table.insert(manifest_items, '    <item id="css" href="royalroad.css" media-type="text/css"/>')
 
-    return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, first_chapter_file
+    return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks
 end
 
 function M:_buildOPF(fiction_id, book_id, escaped_title, escaped_author, cover_image,
@@ -448,7 +417,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 </container>]]
         epub:addFileFromMemory("META-INF/container.xml", container_xml)
 
-        local manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, _first_chapter_file =
+        local manifest_items, spine_items, nav_points, nav_entries, nav_landmarks =
             self:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
 
         epub:addFileFromMemory("content.opf",
@@ -462,9 +431,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         epub:addFileFromMemory("royalroad.css", CSS)
 
         if has_cover then
-            local img_w, img_h = self:getImageDimensions(cover_image.data, cover_image.mime_type)
-            img_w = img_w or 400
-            img_h = img_h or 600
+            local img_w, img_h = 400, 600
             local cover_xhtml = string.format([[<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">

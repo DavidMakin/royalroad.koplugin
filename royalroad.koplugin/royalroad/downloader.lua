@@ -33,22 +33,12 @@ local NetworkMgr      = require("ui/network/manager")
 local widgets        = require("royalroad/widgets")
 local C              = require("royalroad/constants")
 local extractEpubCover = widgets.extractEpubCover
-local fitText          = widgets.fitText
 
 local M = {}
 
 local SCHEDULE_DELAY       = C.NETWORK.SCHEDULE_DELAY
 local YIELD_DELAY          = C.NETWORK.YIELD_DELAY
 local MAX_COVER_CACHE      = C.CACHE.MAX_COVERS
-
-local function json_str(s)
-    return (s or "")
-        :gsub('\\', '\\\\')
-        :gsub('"',  '\\"')
-        :gsub('\n', '\\n')
-        :gsub('\r', '\\r')
-        :gsub('\t', '\\t')
-end
 
 function M:downloadStory()
     local function doDownload()
@@ -219,14 +209,6 @@ function M:processFiction(fiction_id)
 
         local chapter_urls  = data.chapter_urls
         local total_available = #chapter_urls
-        if self.debug_chapter_limit and total_available > self.debug_chapter_limit then
-            local limited_urls = {}
-            for i = 1, self.debug_chapter_limit do
-                table.insert(limited_urls, chapter_urls[i])
-            end
-            chapter_urls = limited_urls
-            logger.info("Royal Road: DEBUG - Limited from", total_available, "to", #chapter_urls, "chapters")
-        end
 
         self:showChapterRangeDialog(fiction_id, data.story_title, data.author, chapter_urls, data.cover_image, data.cover_url, total_available)
     end)
@@ -586,9 +568,10 @@ function M:downloadChapters(fiction_id, story_title, author, chapter_urls, cover
         and T(_("Downloading... (%1 more queued)"), queue_size)
         or _("Downloading...")
     local title_widget = TextWidget:new{
-        text = fitText(title_text, title_face, text_width),
+        text = title_text,
         face = title_face,
         bold = true,
+        max_width = text_width,
     }
 
     local progress_text = TextWidget:new{
@@ -914,6 +897,18 @@ function M:bulkImport()
 end
 
 function M:exportReadingList()
+    local function storyProgress(story)
+        if not story.epub_path then return 0 end
+        local ok, ds = pcall(function()
+            local DocSettings = require("docsettings")
+            return DocSettings:open(story.epub_path)
+        end)
+        if ok and ds and ds.data then
+            return ds.data.percent_finished or 0
+        end
+        return 0
+    end
+
     local export_dialog
     export_dialog = ButtonDialog:new{
         title = _("Export reading list"),
@@ -922,28 +917,18 @@ function M:exportReadingList()
                 text = _("Export as JSON"),
                 callback = function()
                     UIManager:close(export_dialog)
-                    local DocSettings = require("docsettings")
                     local entries = {}
                     for fiction_id, story in pairs(self.downloaded_stories) do
-                        local progress = 0
-                        if story.epub_path then
-                            local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
-                            if ok and ds and ds.data then
-                                progress = ds.data.percent_finished or 0
-                            end
-                        end
-                        local entry = string.format(
-                            '{"fiction_id":"%s","title":"%s","author":"%s","chapters":%d,"progress":%s,"epub_path":"%s"}',
-                            json_str(fiction_id),
-                            json_str(story.title),
-                            json_str(story.author),
-                            #(story.chapter_urls or {}),
-                            tostring(progress),
-                            json_str(story.epub_path)
-                        )
-                        table.insert(entries, entry)
+                        table.insert(entries, {
+                            fiction_id = fiction_id,
+                            title      = story.title or "",
+                            author     = story.author or "",
+                            chapters   = #(story.chapter_urls or {}),
+                            progress   = storyProgress(story),
+                            epub_path  = story.epub_path or "",
+                        })
                     end
-                    local json = "[" .. table.concat(entries, ",") .. "]"
+                    local json = require("json").encode(entries)
                     local path = self.download_dir .. "/royalroad_export.json"
                     local f = io.open(path, "w")
                     if f then
@@ -964,22 +949,14 @@ function M:exportReadingList()
                 text = _("Export as CSV"),
                 callback = function()
                     UIManager:close(export_dialog)
-                    local DocSettings = require("docsettings")
                     local rows = { '"fiction_id","title","author","chapters","progress","epub_path"' }
                     for fiction_id, story in pairs(self.downloaded_stories) do
-                        local progress = 0
-                        if story.epub_path then
-                            local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
-                            if ok and ds and ds.data then
-                                progress = ds.data.percent_finished or 0
-                            end
-                        end
                         local row = string.format('"%s","%s","%s",%d,%s,"%s"',
                             fiction_id,
                             (story.title or ""):gsub('"', '""'),
                             (story.author or ""):gsub('"', '""'),
                             #(story.chapter_urls or {}),
-                            tostring(progress),
+                            tostring(storyProgress(story)),
                             (story.epub_path or ""):gsub('"', '""')
                         )
                         table.insert(rows, row)

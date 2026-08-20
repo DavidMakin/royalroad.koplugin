@@ -10,7 +10,6 @@ local HorizontalSpan = require("ui/widget/horizontalspan")
 local ImageWidget    = require("ui/widget/imagewidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local OverlapGroup   = require("ui/widget/overlapgroup")
-local RenderText     = require("ui/rendertext")
 local Size           = require("ui/size")
 local TextBoxWidget  = require("ui/widget/textboxwidget")
 local TextWidget     = require("ui/widget/textwidget")
@@ -27,7 +26,7 @@ local screen = Device.screen
 -- own source file: KOReader resolves require() to absolute paths, so
 -- "@<abs>/royalroad.koplugin/royalroad/widgets.lua" yields the royalroad/
 -- dir and we step up one level to the plugin root (same idiom as
--- royalroad/meta.lua and royalroad/epub.lua).
+-- royalroad/epub.lua).
 local _plugin_dir = debug.getinfo(1, "S").source:match("^@(.+)/[^/]+$") or "."
 local EXCLUDED_RIBBON = _plugin_dir .. "/../icons/excluded_ribbon.svg"
 local NEW_RIBBON      = _plugin_dir .. "/../icons/new_ribbon.svg"
@@ -36,26 +35,8 @@ local STORY_COVER_HEIGHT = screen and screen:scaleBySize(100) or 100
 local STORY_COVER_WIDTH  = math.floor(STORY_COVER_HEIGHT * 2 / 3)
 local STORY_ITEM_PAD     = screen and screen:scaleBySize(8) or 8
 
-local GRID_COLS     = 3
 local GRID_CELL_GAP = screen and screen:scaleBySize(6) or 6
 local GRID_ROW_GAP  = screen and screen:scaleBySize(8) or 8
-
-local function fitText(text, face, max_width)
-    local w = RenderText:sizeUtf8Text(0, max_width, face, text, true, false).x
-    if w <= max_width then return text end
-    local ellipsis = "…"
-    local lo, hi = 1, #text
-    while lo < hi do
-        local mid = math.floor((lo + hi + 1) / 2)
-        local candidate = text:sub(1, mid) .. ellipsis
-        if RenderText:sizeUtf8Text(0, max_width, face, candidate, true, false).x <= max_width then
-            lo = mid
-        else
-            hi = mid - 1
-        end
-    end
-    return text:sub(1, lo) .. ellipsis
-end
 
 local function extractEpubCover(epub_path)
     local FileManagerBookInfo = require("apps/filemanager/filemanagerbookinfo")
@@ -427,12 +408,9 @@ return {
     StoryListItem    = StoryListItem,
     StoryCoverCell   = StoryCoverCell,
     extractEpubCover = extractEpubCover,
-    applyBadges      = applyBadges,
-    fitText          = fitText,
     STORY_COVER_HEIGHT = STORY_COVER_HEIGHT,
     STORY_COVER_WIDTH  = STORY_COVER_WIDTH,
     STORY_ITEM_PAD     = STORY_ITEM_PAD,
-    GRID_COLS          = GRID_COLS,
     GRID_CELL_GAP      = GRID_CELL_GAP,
     GRID_ROW_GAP       = GRID_ROW_GAP,
 }

@@ -88,7 +88,6 @@ function M:addToMainMenu(menu_items)
                 callback = function() self:showSettings() end,
             },
         }
-    self._royalroad_items = royalroad_items
     menu_items.royalroad = {
         text = _("Royal Road Downloader"),
         keep_menu_open = true,
@@ -329,7 +328,13 @@ function M:chooseDownloadFolder()
 end
 
 function M:showAbout()
-    local meta = require("royalroad/meta")
+    -- Load our own _meta.lua by absolute path: require("_meta") is unsafe
+    -- here — "_meta" is a generic module name shared by nearly every
+    -- KOReader plugin, and require()'s cache (package.loaded) means whichever
+    -- plugin's _meta.lua loads first "wins", so require("_meta") could
+    -- silently return a different plugin's metadata table.
+    local script_dir = debug.getinfo(1, "S").source:match("^@(.*)/")
+    local meta = dofile(script_dir .. "/../_meta.lua")
     UIManager:show(InfoMessage:new{
         text = T(_(
             "Royal Road Downloader\n\n" ..

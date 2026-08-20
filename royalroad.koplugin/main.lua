@@ -63,13 +63,9 @@ function RoyalRoadDownloader:init()
     local home_dir = G_reader_settings:readSetting("home_dir") or DataStorage:getFullDataDir()
     self.default_download_dir = ("%s/%s"):format(home_dir, "royalroad")
     self.cover_cache_dir = DataStorage:getDataDir() .. "/cache/royalroad"
-    self.debug_chapter_limit = nil
     self:loadSettings()
     logger.info("Royal Road: Plugin initialized. Download dir:", self.download_dir)
     logger.info("Royal Road: Tracking", self:countDownloadedStories(), "downloaded stories")
-    if self.debug_chapter_limit then
-        logger.info("Royal Road: DEBUG MODE - Limiting downloads to", self.debug_chapter_limit, "chapters")
-    end
 end
 
 function RoyalRoadDownloader:loadSettings()

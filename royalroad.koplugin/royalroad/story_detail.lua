@@ -110,66 +110,34 @@ function M:showStoryOptions(fiction_id)
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })
     end
-    if story.status and story.status ~= "" then
+    local function addMeta(text)
         table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
         table.insert(meta_group, TextWidget:new{
-            text    = story.status,
+            text    = text,
             face    = Font:getFace("smallffont"),
             fgcolor = Blitbuffer.COLOR_DARK_GRAY,
         })
     end
-    table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
-    table.insert(meta_group, TextWidget:new{
-        text    = T(_("%1 chapters"), chapter_count),
-        face    = Font:getFace("smallffont"),
-        fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-    })
+    if story.status and story.status ~= "" then
+        addMeta(story.status)
+    end
+    addMeta(T(_("%1 chapters"), chapter_count))
     if story.word_count and story.word_count ~= "" then
         local wk = math.floor(tonumber(story.word_count) / 100 + 0.5) / 10
         local wc_str = wk and (wk .. "k") or tostring(story.word_count)
-        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
-        table.insert(meta_group, TextWidget:new{
-            text    = T(_("%1 words"), wc_str),
-            face    = Font:getFace("smallffont"),
-            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-        })
+        addMeta(T(_("%1 words"), wc_str))
     end
     if story.rating and story.rating ~= "" then
-        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
-        table.insert(meta_group, TextWidget:new{
-            text    = T(_("Rating: %1★"), story.rating),
-            face    = Font:getFace("smallffont"),
-            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-        })
+        addMeta(T(_("Rating: %1★"), story.rating))
     end
-    table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
-    table.insert(meta_group, TextWidget:new{
-        text    = T(_("Downloaded: %1"), download_date),
-        face    = Font:getFace("smallffont"),
-        fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-    })
-    table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
-    table.insert(meta_group, TextWidget:new{
-        text    = T(_("Last checked: %1"), last_check),
-        face    = Font:getFace("smallffont"),
-        fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-    })
+    addMeta(T(_("Downloaded: %1"), download_date))
+    addMeta(T(_("Last checked: %1"), last_check))
     if story.last_chapter_date and story.last_chapter_date ~= "" then
         local lcd = story.last_chapter_date:match("^(%d+%-%d+%-%d+)") or story.last_chapter_date
-        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
-        table.insert(meta_group, TextWidget:new{
-            text    = T(_("Last chapter: %1"), lcd),
-            face    = Font:getFace("smallffont"),
-            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-        })
+        addMeta(T(_("Last chapter: %1"), lcd))
     end
     if read_percent and read_percent > 0 then
-        table.insert(meta_group, VerticalSpan:new{ width = Size.padding.small })
-        table.insert(meta_group, TextWidget:new{
-            text    = T(_("Progress: %1%"), math.floor(read_percent * 100 + 0.5)),
-            face    = Font:getFace("smallffont"),
-            fgcolor = Blitbuffer.COLOR_DARK_GRAY,
-        })
+        addMeta(T(_("Progress: %1%"), math.floor(read_percent * 100 + 0.5)))
     end
 
     local header = HorizontalGroup:new{ align = "top" }

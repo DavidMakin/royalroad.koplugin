@@ -21,7 +21,6 @@ local StoryCoverCell   = widgets.StoryCoverCell
 local STORY_COVER_HEIGHT = widgets.STORY_COVER_HEIGHT
 local STORY_COVER_WIDTH  = widgets.STORY_COVER_WIDTH
 local STORY_ITEM_PAD     = widgets.STORY_ITEM_PAD
-local GRID_COLS          = widgets.GRID_COLS
 local GRID_CELL_GAP      = widgets.GRID_CELL_GAP
 local GRID_ROW_GAP       = widgets.GRID_ROW_GAP
 
@@ -260,6 +259,32 @@ function M:manageDownloads()
         Menu.onCloseWidget(self)
     end
 
+    function StoryMenuBase:_queueCoverLoad(entry, widget)
+        if not entry.cover_bb and entry.epub_path and lfs.attributes(entry.epub_path, "mode") then
+            table.insert(self._items_pending, { entry = entry, widget = widget })
+        end
+    end
+
+    function StoryMenuBase:_updateItemsStart()
+        self.layout = {}
+        self.item_group:clear()
+        local old_dimen = self.dimen and self.dimen:copy()
+        self:_recalculateDimen()
+        self._items_pending = {}
+        return old_dimen
+    end
+
+    function StoryMenuBase:_updateItemsFinish(select_number, old_dimen)
+        self:updatePageInfo(select_number)
+        UIManager:setDirty(self.show_parent, function()
+            local refresh_dimen = old_dimen and old_dimen:combine(self.dimen) or self.dimen
+            return "ui", refresh_dimen
+        end)
+        if #self._items_pending > 0 then
+            UIManager:scheduleIn(0.1, function() self:_loadCovers() end)
+        end
+    end
+
     if self.manage_view_mode == "mosaic" then
         local cols      = downloader.mosaic_cols or 3
         local rows      = downloader.mosaic_rows or 2
@@ -302,11 +327,7 @@ function M:manageDownloads()
         end
 
         function StoryMosaicMenu:updateItems(select_number)
-            self.layout = {}
-            self.item_group:clear()
-            local old_dimen = self.dimen and self.dimen:copy()
-            self:_recalculateDimen()
-            self._items_pending = {}
+            local old_dimen = self:_updateItemsStart()
 
             local cell_w  = self._cell_w
             local cell_h  = self._cell_h
@@ -338,9 +359,7 @@ function M:manageDownloads()
                         if col < cols then
                             table.insert(row, HorizontalSpan:new{ width = GRID_CELL_GAP })
                         end
-                        if not entry.cover_bb and entry.epub_path and lfs.attributes(entry.epub_path, "mode") then
-                            table.insert(self._items_pending, { entry = entry, widget = cell })
-                        end
+                        self:_queueCoverLoad(entry, cell)
                     end
                 end
                 table.insert(row, HorizontalSpan:new{ width = side_pad })
@@ -349,15 +368,7 @@ function M:manageDownloads()
                 table.insert(self.item_group, VerticalSpan:new{ width = GRID_ROW_GAP })
             end
 
-            self:updatePageInfo(select_number)
-            UIManager:setDirty(self.show_parent, function()
-                local refresh_dimen = old_dimen and old_dimen:combine(self.dimen) or self.dimen
-                return "ui", refresh_dimen
-            end)
-
-            if #self._items_pending > 0 then
-                UIManager:scheduleIn(0.1, function() self:_loadCovers() end)
-            end
+            self:_updateItemsFinish(select_number, old_dimen)
         end
 
         local filter_suffix = (self._manage_filter or "") ~= "" and (" [filter: " .. self._manage_filter .. "]") or ""
@@ -460,11 +471,7 @@ function M:manageDownloads()
     end
 
     function StoryListMenu:updateItems(select_number)
-        self.layout = {}
-        self.item_group:clear()
-        local old_dimen = self.dimen and self.dimen:copy()
-        self:_recalculateDimen()
-        self._items_pending = {}
+        local old_dimen = self:_updateItemsStart()
 
         local idx_offset = (self.page - 1) * self.perpage
         for i = 1, self.perpage do
@@ -491,22 +498,10 @@ function M:manageDownloads()
 
             table.insert(self.layout, { widget })
 
-            if not entry.cover_bb and entry.epub_path and lfs.attributes(entry.epub_path, "mode") then
-                table.insert(self._items_pending, { entry = entry, widget = widget })
-            end
+            self:_queueCoverLoad(entry, widget)
         end
 
-        self:updatePageInfo(select_number)
-        UIManager:setDirty(self.show_parent, function()
-            local refresh_dimen = old_dimen and old_dimen:combine(self.dimen) or self.dimen
-            return "ui", refresh_dimen
-        end)
-
-        if #self._items_pending > 0 then
-            UIManager:scheduleIn(0.1, function()
-                self:_loadCovers()
-            end)
-        end
+        self:_updateItemsFinish(select_number, old_dimen)
     end
 
     local filter_suffix = (self._manage_filter or "") ~= "" and (" [filter: " .. self._manage_filter .. "]") or ""
