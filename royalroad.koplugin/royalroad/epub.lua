@@ -485,21 +485,23 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
             self._pending_descriptions[fiction_id] = nil
         end
         local existing = self.downloaded_stories[fiction_id] or {}
-        self.downloaded_stories[fiction_id] = {
-            fiction_id         = fiction_id,
-            title              = story_title,
-            author             = author,
-            chapter_urls       = chapter_urls or {},
-            epub_path          = filename,
-            cover_url          = cover_url,
-            download_date      = existing.download_date or os.time(),
-            last_update        = os.time(),
-            rating             = existing.rating,
-            status             = existing.status,
-            word_count         = existing.word_count,
-            description        = existing.description,
-            last_chapter_date  = existing.last_chapter_date,
-        }
+        -- Preserve every existing entry field (excluded, unread_new_count,
+        -- missing, queued_chapter_urls, ...) instead of rebuilding from a
+        -- whitelist that silently dropped them — updating a story used to
+        -- clear the "Exclude from updates" flag and friends.
+        local entry = {}
+        for k, v in pairs(existing) do
+            if k ~= "cover_bb" then entry[k] = v end
+        end
+        entry.fiction_id    = fiction_id
+        entry.title         = story_title
+        entry.author        = author
+        entry.chapter_urls  = chapter_urls or {}
+        entry.epub_path     = filename
+        entry.cover_url     = cover_url
+        entry.download_date = entry.download_date or os.time()
+        entry.last_update   = os.time()
+        self.downloaded_stories[fiction_id] = entry
         self:_invalidateStoryCount()
         self:saveSettings()
         logger.info("Royal Road: Saved metadata for story", fiction_id, "with", #(chapter_urls or {}), "chapters")
