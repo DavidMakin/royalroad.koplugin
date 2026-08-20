@@ -227,12 +227,9 @@ function M:manageDownloads()
                 end }},
                 {{ text = story.excluded and _("Include in updates") or _("Exclude from updates"), callback = function()
                     close()
+                    -- The toggle never touches unread_new_count: the badge only
+                    -- goes away when a check is selected (updater.lua).
                     story.excluded = not story.excluded
-                    if story.excluded then
-                        -- Only exclude clears the badge; un-excluding keeps it so
-                        -- a story with unread chapters still shows the badge.
-                        story.unread_new_count = nil
-                    end
                     downloader:saveSettings()
                     downloader:refreshManageMenu()
                 end }},

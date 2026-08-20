@@ -194,12 +194,10 @@ function M:showStoryOptions(fiction_id)
     table.insert(buttons, {{
         text = is_excluded and _("\u{25C9} Include in updates") or _("\u{2298} Exclude from updates"),
         callback = function()
+            -- The toggle never touches unread_new_count: the badge only goes
+            -- away when a check is selected (updater.lua) — excluding a story
+            -- doesn't make its unread chapters read.
             story.excluded = not is_excluded
-            if story.excluded then
-                -- Clearing the badge only makes sense when the story is excluded:
-                -- un-excluding a story with unread chapters must keep the badge.
-                story.unread_new_count = nil
-            end
             self:saveSettings()
             UIManager:close(self.story_detail_dialog)
             UIManager:setDirty(nil, "ui")
