@@ -228,7 +228,11 @@ function M:manageDownloads()
                 {{ text = story.excluded and _("Include in updates") or _("Exclude from updates"), callback = function()
                     close()
                     story.excluded = not story.excluded
-                    story.unread_new_count = nil
+                    if story.excluded then
+                        -- Only exclude clears the badge; un-excluding keeps it so
+                        -- a story with unread chapters still shows the badge.
+                        story.unread_new_count = nil
+                    end
                     downloader:saveSettings()
                     downloader:refreshManageMenu()
                 end }},
