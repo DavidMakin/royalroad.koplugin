@@ -7,42 +7,57 @@
   <meta property="og:title" content="Royal Road Downloader for KOReader">
   <meta property="og:description" content="Download web fiction from Royal Road directly to your Kobo, Kindle, or Android e-reader.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="screenshots/main_screen.png">
+  <meta property="og:image" content="screenshots/main_mosaic.png">
   <link rel="canonical" href="https://royalroad-koplugin.sleep-er.co.uk/">
+<meta name="theme-color" content="#05080f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='3' fill='%2305080f'/%3E%3Cpath d='M8 6h11a5 5 0 0 1 5 5v15l-8-4-8 4z' fill='none' stroke='%2335e0cd' stroke-width='2.5'/%3E%3C/svg%3E">
   <title>Royal Road Downloader for KOReader</title>
   <style>
     /* ── Tokens ─────────────────────────────────────────────── */
     :root {
-      --bg:         #0f1117;
-      --bg-raised:  #181c26;
-      --bg-card:    #1e2333;
-      --border:     #2a3048;
-      --text:       #e8dfc8;
-      --text-muted: #9a9070;
-      --accent:     #c8a84b;
-      --accent-dim: #9e7e32;
-      --teal:       #4a9e8e;
-      --teal-dim:   #326e62;
-      --radius:     6px;
-      --radius-lg:  12px;
-      --max:        900px;
-      --serif:      Georgia, "Times New Roman", Times, serif;
+      --bg:         #05080f;
+      --bg-raised:  #0a1120;
+      --border:     #17263d;
+      --border-hot: #1e5f6b;
+      --text:       #dfe8f3;
+      --text-muted: #8296b0;
+      --cyan:       #35e0cd;
+      --cyan-dim:   #17a5a0;
+      --amber:       #ffa94d;
+      --amber-dim:   #c9782a;
+      --radius:     3px;
+      --max:        1000px;
+      --display:    "Rajdhani", "Segoe UI Semibold", "Helvetica Neue", sans-serif;
       --sans:       -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      --mono:       "JetBrains Mono", "SF Mono", "Fira Mono", Consolas, monospace;
     }
 
     /* ── Reset ───────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
-      background: var(--bg);
       color: var(--text);
       font-family: var(--sans);
       font-size: 1rem;
       line-height: 1.65;
+      background-color: var(--bg);
+      /* fixed atmosphere: two auras over a faint HUD grid */
+      background-image:
+        radial-gradient(900px 460px at 8% -10%, rgba(53,224,205,0.13), transparent 68%),
+        radial-gradient(760px 420px at 95% 2%,  rgba(255,169,77,0.09), transparent 68%),
+        linear-gradient(rgba(130,175,210,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(130,175,210,0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 34px, 34px 100%;
+      background-repeat: no-repeat, no-repeat, repeat, repeat;
+      background-attachment: fixed;
     }
     img { display: block; max-width: 100%; height: auto; }
-    a { color: var(--accent); text-decoration: none; }
+    a { color: var(--cyan); text-decoration: none; }
     a:hover { color: var(--text); text-decoration: underline; }
+    ::selection { background: var(--cyan); color: #05080f; }
 
     /* ── Layout ──────────────────────────────────────────────── */
     .container {
@@ -50,321 +65,491 @@
       margin: 0 auto;
       padding: 0 1.25rem;
     }
-    section { padding: 3.5rem 0; }
+    section { padding: 4rem 0; scroll-margin-top: 3.5rem; }
     section + section { border-top: 1px solid var(--border); }
+    code {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      color: var(--amber);
+    }
 
     /* ── Typography ──────────────────────────────────────────── */
-    h1, h2, h3 { font-family: var(--serif); font-weight: normal; line-height: 1.25; }
-    h1 { font-size: clamp(1.75rem, 5vw, 2.75rem); color: var(--accent); }
-    h2 { font-size: clamp(1.25rem, 3.5vw, 1.75rem); color: var(--text); margin-bottom: 1.25rem; }
-    h3 { font-size: 1.1rem; color: var(--accent); margin-bottom: 0.4rem; }
+    h1, h2, h3 { font-family: var(--display); line-height: 1.18; }
+    h1 {
+      font-size: clamp(2.1rem, 6.5vw, 3.6rem);
+      font-weight: 700;
+      letter-spacing: -0.005em;
+      color: var(--text);
+      text-shadow: 0 0 40px rgba(53,224,205,0.22);
+    }
+    h1 em {
+      font-style: normal;
+      color: var(--cyan);
+    }
+    h2 {
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+    }
+    /* system-window tick before each heading, hairline trailing off after it */
+    h2::before {
+      content: "";
+      flex: none;
+      width: 0.5em; height: 0.5em;
+      background: var(--cyan);
+      transform: rotate(45deg);
+      box-shadow: 0 0 12px rgba(53,224,205,0.7);
+    }
+    h2::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: var(--cyan);
+      margin-bottom: 0.45rem;
+    }
     p { margin-bottom: 0.9rem; color: var(--text); }
     p:last-child { margin-bottom: 0; }
 
-    /* ── Header / Hero ───────────────────────────────────────── */
-    header {
-      background: linear-gradient(160deg, #13172099 0%, #0f1117 100%),
-                  repeating-linear-gradient(
-                    45deg,
-                    transparent,
-                    transparent 40px,
-                    rgba(200,168,75,0.03) 40px,
-                    rgba(200,168,75,0.03) 41px
-                  );
+    /* ── Sticky bar ──────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(5, 8, 15, 0.86);
+      backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
-      padding: 4rem 0 3.5rem;
+      box-shadow: 0 1px 0 rgba(53,224,205,0.12);
+    }
+    .topbar > .container {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      padding: 0.55rem 1.25rem;
+    }
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      color: var(--text);
+      margin-right: auto;
+    }
+    .topbar-brand::before {
+      content: "";
+      width: 0.5rem; height: 0.5rem;
+      background: var(--cyan);
+      transform: rotate(45deg);
+      box-shadow: 0 0 10px var(--cyan);
     }
     .hero-nav {
       display: flex;
-      justify-content: flex-end;
       align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+      gap: 0.4rem;
     }
     .hero-nav-link {
       display: inline-block;
-      padding: 0.4rem 1rem;
+      padding: 0.35rem 0.85rem;
       border: 1px solid var(--border);
       border-radius: var(--radius);
       color: var(--text-muted);
-      font-size: 0.85rem;
-      transition: border-color 0.2s, color 0.2s;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
     .hero-nav-link:hover {
-      border-color: var(--accent-dim);
-      color: var(--accent);
+      border-color: var(--cyan-dim);
+      background: rgba(53,224,205,0.07);
+      color: var(--cyan);
       text-decoration: none;
     }
+
+    /* ── Hero ────────────────────────────────────────────────── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 4.5rem 0 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+    /* faint scanlines, hero only */
+    header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg, rgba(53,224,205,0.035) 0 1px, transparent 1px 4px);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr minmax(0, 300px);
+      gap: 3.5rem;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
     .hero-eyebrow {
-      display: inline-block;
-      font-size: 0.78rem;
-      letter-spacing: 0.12em;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
-      color: var(--teal);
-      margin-bottom: 0.75rem;
-      font-family: var(--sans);
+      color: var(--cyan);
+      border: 1px solid var(--border-hot);
+      background: rgba(53,224,205,0.07);
+      border-radius: var(--radius);
+      padding: 0.28rem 0.75rem;
+      margin-bottom: 1.15rem;
     }
     .hero-subtitle {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
+      line-height: 1.6;
       color: var(--text-muted);
-      max-width: 540px;
-      margin: 0.75rem 0 2rem;
+      max-width: 33rem;
+      margin: 1rem 0 2.25rem;
     }
     .hero-cta {
       display: inline-block;
-      padding: 0.75rem 2rem;
-      background: var(--accent);
-      color: #0f1117;
+      padding: 0.8rem 2.1rem;
+      background: linear-gradient(135deg, var(--cyan), var(--cyan-dim));
+      color: #04070d;
+      font-family: var(--display);
       font-weight: 700;
-      font-size: 0.95rem;
-      letter-spacing: 0.04em;
-      border-radius: var(--radius);
-      transition: background 0.2s, transform 0.15s;
+      font-size: 1.05rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      /* notched HUD corners */
+      clip-path: polygon(0 0, calc(100% - 13px) 0, 100% 13px, 100% 100%, 13px 100%, 0 calc(100% - 13px));
+      box-shadow: 0 0 34px rgba(53,224,205,0.28);
+      transition: filter 0.2s, transform 0.15s, box-shadow 0.2s;
     }
     .hero-cta:hover {
-      background: var(--accent-dim);
-      color: #0f1117;
+      filter: brightness(1.12);
+      color: #04070d;
       text-decoration: none;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 0 46px rgba(53,224,205,0.45);
     }
     .hero-note {
       display: block;
-      margin-top: 0.65rem;
-      font-size: 0.8rem;
+      margin-top: 0.85rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
       color: var(--text-muted);
+    }
+    /* bracketed device frame around the hero screenshot */
+    .hero-shot {
+      position: relative;
+      padding: 12px;
+    }
+    .hero-shot::before, .hero-shot::after {
+      content: "";
+      position: absolute;
+      width: 26px; height: 26px;
+      border: 2px solid var(--cyan);
+      opacity: 0.75;
+    }
+    .hero-shot::before { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+    .hero-shot::after { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+    .hero-shot img {
+      border: 1px solid var(--border-hot);
+      border-radius: var(--radius);
+      box-shadow: 0 0 0 1px rgba(53,224,205,0.1), 0 20px 60px rgba(0,0,0,0.7);
     }
 
     /* ── Features ────────────────────────────────────────────── */
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: 1.25rem;
-      margin-top: 1.5rem;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
     }
     .feature-card {
-      background: var(--bg-card);
+      position: relative;
+      background: linear-gradient(165deg, rgba(23,38,61,0.55), rgba(11,19,34,0.8));
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.4rem 1.25rem;
-      transition: border-color 0.2s;
+      border-radius: var(--radius);
+      padding: 1.5rem 1.35rem;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
     }
-    .feature-card:hover { border-color: var(--accent-dim); }
+    /* HUD corner brackets */
+    .feature-card::before, .feature-card::after {
+      content: "";
+      position: absolute;
+      width: 11px; height: 11px;
+      border: 2px solid var(--cyan);
+      opacity: 0.35;
+      transition: opacity 0.2s;
+    }
+    .feature-card::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+    .feature-card::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+    .feature-card:hover {
+      border-color: var(--border-hot);
+      box-shadow: 0 0 34px rgba(53,224,205,0.09);
+      transform: translateY(-2px);
+    }
+    .feature-card:hover::before, .feature-card:hover::after { opacity: 1; }
+    .feature-card p { color: var(--text-muted); font-size: 0.95rem; margin: 0; }
 
     /* ── Walkthrough ─────────────────────────────────────────── */
     .walkthrough {
       display: flex;
       flex-direction: column;
-      gap: 3.5rem;
-      margin-top: 1.5rem;
+      gap: 3.75rem;
     }
     .walk-step {
       display: flex;
       flex-direction: row;
-      gap: 2.5rem;
+      gap: 3rem;
       align-items: center;
     }
-    .walk-step:nth-child(even) { flex-direction: row-reverse; }
-    .walk-step-img {
-      flex: 0 0 260px;
-    }
+    /* alternate across the steps only, ignoring the path/merge dividers */
+    .walk-step:nth-child(even of .walk-step) { flex-direction: row-reverse; }
+    .walk-step-img { flex: 0 0 264px; position: relative; }
+    .walk-step-img a { display: block; max-width: 264px; cursor: zoom-in; }
     .walk-step-img img {
-      max-width: 260px;
+      max-width: 264px;
       width: 100%;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      box-shadow: 0 6px 28px rgba(0,0,0,0.55);
-      transition: box-shadow 0.2s, transform 0.2s;
+      border: 1px solid var(--border-hot);
+      border-radius: var(--radius);
+      box-shadow: 0 14px 40px rgba(0,0,0,0.65);
+      transition: box-shadow 0.25s, transform 0.25s;
     }
     .walk-step-img img:hover {
-      box-shadow: 0 10px 40px rgba(0,0,0,0.75);
-      transform: translateY(-2px);
+      box-shadow: 0 0 0 1px var(--cyan), 0 0 46px rgba(53,224,205,0.3), 0 18px 50px rgba(0,0,0,0.7);
+      transform: translateY(-3px);
     }
-    .walk-step-body {
-      flex: 1;
-    }
+    .walk-step-body { flex: 1; }
     .walk-step-num {
-      font-family: var(--serif);
-      font-size: 4rem;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 2.6rem;
       line-height: 1;
-      color: var(--border);
-      margin-bottom: 0.25rem;
+      color: var(--cyan);
+      text-shadow: 0 0 30px rgba(53,224,205,0.5);
+      letter-spacing: 0.02em;
+      margin-bottom: 0.7rem;
       user-select: none;
     }
-    .walk-step-body h3 {
-      font-size: 1.3rem;
-      color: var(--text);
-      margin-bottom: 0.6rem;
+    .walk-step-num::before,
+    .walk-step-num::after {
+      color: var(--border-hot);
+      text-shadow: none;
     }
-    .walk-step-body p {
-      color: var(--text-muted);
-      font-size: 0.95rem;
-    }
-    .walk-path-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .walk-path-header::before,
-    .walk-path-header::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-    .walk-path-label {
-      white-space: nowrap;
-      font-family: var(--sans);
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--teal);
-      background: var(--bg-card);
-      border: 1px solid var(--teal-dim);
-      border-radius: 999px;
-      padding: 0.25rem 0.9rem;
-    }
+    .walk-step-num::before { content: "["; margin-right: 0.15em; }
+    .walk-step-num::after { content: "]"; margin-left: 0.15em; }
+    .walk-step-body p { color: var(--text-muted); font-size: 1rem; }
+
+    /* branch / merge dividers, drawn as system dividers */
+    .walk-path-header,
     .walk-merge {
       display: flex;
       align-items: center;
       gap: 1rem;
     }
-    .walk-merge::before,
-    .walk-merge::after {
+    .walk-path-header::before, .walk-path-header::after,
+    .walk-merge::before, .walk-merge::after {
       content: "";
       flex: 1;
       height: 1px;
-      background: var(--border);
+    }
+    .walk-path-header::before, .walk-path-header::after {
+      background: repeating-linear-gradient(90deg, var(--border-hot) 0 6px, transparent 6px 12px);
+    }
+    .walk-merge::before, .walk-merge::after {
+      background: repeating-linear-gradient(90deg, var(--border) 0 6px, transparent 6px 12px);
+    }
+    .walk-path-label {
+      white-space: nowrap;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      background: rgba(53,224,205,0.07);
+      border: 1px solid var(--border-hot);
+      border-radius: var(--radius);
+      padding: 0.3rem 0.9rem;
+      box-shadow: 0 0 22px rgba(53,224,205,0.12);
     }
     .walk-merge span {
       white-space: nowrap;
-      font-size: 0.75rem;
+      font-family: var(--mono);
+      font-size: 0.66rem;
       font-weight: 700;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: var(--text-muted);
+      color: var(--amber);
     }
-
-    /* ── Usage steps ─────────────────────────────────────────── */
-    .steps { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
-    .step {
-      display: grid;
-      grid-template-columns: 2.5rem 1fr;
-      gap: 1rem;
-      align-items: start;
-    }
-    .step-num {
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 50%;
-      border: 2px solid var(--accent);
-      color: var(--accent);
-      font-family: var(--serif);
-      font-size: 1.1rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .step-body h3 { margin-bottom: 0.25rem; color: var(--text); }
-    .step-body p { color: var(--text-muted); font-size: 0.92rem; margin: 0; }
 
     /* ── Installation table ──────────────────────────────────── */
-    .table-wrap { overflow-x: auto; margin-top: 1.25rem; }
+    .table-wrap { overflow-x: auto; margin: 1.5rem 0; }
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.88rem;
+      font-size: 0.9rem;
+      background: rgba(11,19,34,0.6);
     }
     th, td {
       text-align: left;
-      padding: 0.65rem 0.9rem;
+      padding: 0.7rem 0.95rem;
       border: 1px solid var(--border);
     }
     th {
       background: var(--bg-raised);
-      color: var(--accent);
-      font-family: var(--serif);
-      font-weight: normal;
-      font-size: 0.85rem;
-      letter-spacing: 0.05em;
+      color: var(--cyan);
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
+      border-bottom-color: var(--border-hot);
     }
-    tr:nth-child(even) td { background: var(--bg-raised); }
-    td code {
-      font-family: "SF Mono", "Fira Mono", "Consolas", monospace;
-      font-size: 0.82rem;
-      color: var(--teal);
-      word-break: break-all;
-    }
+    td:first-child { font-family: var(--display); font-weight: 600; font-size: 1.05rem; }
+    tr:hover td { background: rgba(53,224,205,0.04); }
+    td code { font-size: 0.82rem; word-break: break-all; }
 
     /* ── Limitations ─────────────────────────────────────────── */
     .limitations-list {
       list-style: none;
-      margin-top: 1rem;
       display: flex;
       flex-direction: column;
-      gap: 0.55rem;
+      gap: 0.7rem;
     }
     .limitations-list li {
-      padding-left: 1.2rem;
+      padding-left: 2rem;
       position: relative;
       color: var(--text-muted);
-      font-size: 0.92rem;
+      font-size: 0.95rem;
     }
     .limitations-list li::before {
-      content: "-";
+      content: "!";
       position: absolute;
       left: 0;
-      color: var(--border);
+      top: 0.22em;
+      width: 1.3em;
+      height: 1.3em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--amber);
+      border: 1px solid var(--amber-dim);
+      border-radius: var(--radius);
+      background: rgba(255,169,77,0.08);
     }
 
     /* ── Footer ──────────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
-      padding: 2rem 0;
+      padding: 2.5rem 0;
       text-align: center;
-      font-size: 0.82rem;
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      letter-spacing: 0.04em;
       color: var(--text-muted);
     }
+    footer .footer-fine { margin-top: 0.5rem; }
     footer a { color: var(--text-muted); }
-    footer a:hover { color: var(--accent); }
+    footer a:hover { color: var(--cyan); }
 
     /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 860px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+      .hero-shot { max-width: 260px; padding: 10px; }
+    }
+
     @media (max-width: 640px) {
-      section { padding: 2.5rem 0; }
+      section { padding: 2.75rem 0; }
+      header { padding: 3rem 0; }
       .walk-step,
-      .walk-step:nth-child(even) {
+      .walk-step:nth-child(even of .walk-step) {
         flex-direction: column;
+        gap: 1.5rem;
       }
       .walk-step-img { flex: none; width: 100%; }
+      .walk-step-img a,
       .walk-step-img img { max-width: 100%; }
-      .walk-step-num { font-size: 2.75rem; }
+      .walk-step-num { font-size: 2rem; }
+      /* keep the sticky bar one row tall on phones: scroll it sideways */
+      .topbar-brand { display: none; }
+      .topbar > .container { flex-wrap: nowrap; overflow-x: auto; }
+      .hero-nav { flex-wrap: nowrap; }
+      .hero-nav-link { white-space: nowrap; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+      .hero-cta:hover,
+      .feature-card:hover,
+      .walk-step-img img:hover { transform: none; }
     }
   </style>
 </head>
 <body>
 
-<!-- ── Hero ───────────────────────────────────────────────────── -->
-<header>
+<!-- ── Sticky nav ─────────────────────────────────────────────── -->
+<div class="topbar">
   <div class="container">
-    <nav class="hero-nav">
+    <span class="topbar-brand">Royal Road Downloader</span>
+    <nav class="hero-nav" aria-label="Main">
       <a class="hero-nav-link" href="#features">Features</a>
       <a class="hero-nav-link" href="#screenshots">How it works</a>
       <a class="hero-nav-link" href="#library">Library</a>
       <a class="hero-nav-link" href="#installation">Install</a>
       <a class="hero-nav-link" href="https://github.com/DavidMakin/royalroad.koplugin" target="_blank" rel="noopener">GitHub</a>
     </nav>
-    <span class="hero-eyebrow">KOReader Plugin</span>
-    <h1>Royal Road Downloader</h1>
-    <p class="hero-subtitle">
-      Search and download web fiction from Royal Road directly to your e-reader,
-      as neatly formatted EPUB files with cover-art library view — no computer required.
-    </p>
-    <a class="hero-cta" href="https://github.com/DavidMakin/royalroad.koplugin/releases/latest">
-      Download Latest Release
-    </a>
-    <span class="hero-note">Works on Kobo, Kindle, Android, Linux, and macOS</span>
+  </div>
+</div>
+
+<!-- ── Hero ───────────────────────────────────────────────────── -->
+<header>
+  <div class="container hero-grid">
+    <div>
+      <span class="hero-eyebrow">KOReader Plugin</span>
+      <h1>Royal&nbsp;Road<br><em>Downloader</em></h1>
+      <p class="hero-subtitle">
+        Search and download web fiction from Royal Road directly to your e-reader,
+        as neatly formatted EPUB files with cover-art library view — no computer required.
+      </p>
+      <a class="hero-cta" href="https://github.com/DavidMakin/royalroad.koplugin/releases/latest">
+        Download Latest Release
+      </a>
+      <span class="hero-note">Works on Kobo, Kindle, Android, Linux, and macOS</span>
+    </div>
+    <div class="hero-shot">
+      <img src="screenshots/main_mosaic.png"
+           alt="Downloaded stories shown as a grid of cover art with reading-progress bars"
+           width="671" height="921">
+    </div>
   </div>
 </header>
 
@@ -411,11 +596,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/menu.png"
-                 alt="Plugin options menu inside KOReader" width="671" height="920" loading="lazy">
+            <a href="screenshots/menu.png" target="_blank" rel="noopener"><img src="screenshots/menu.png"
+                 alt="Plugin options menu inside KOReader" width="670" height="920" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">1</div>
+            <div class="walk-step-num">01</div>
             <h3>Open the plugin</h3>
             <p>Access Royal Road Downloader from the KOReader tools menu to see all options.</p>
           </div>
@@ -425,11 +610,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/search_initial_popup.png"
-                 alt="Search input dialog for Royal Road" width="671" height="920" loading="lazy">
+            <a href="screenshots/search_initial_popup.png" target="_blank" rel="noopener"><img src="screenshots/search_initial_popup.png"
+                 alt="Search input dialog for Royal Road" width="669" height="924" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">2</div>
+            <div class="walk-step-num">02A</div>
             <h3>Search Royal Road</h3>
             <p>Search by title, author name, or keywords. Results show the title, chapter count, and tags — enough to decide if a story is worth downloading.</p>
           </div>
@@ -437,11 +622,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/search_results.png"
-                 alt="Search results listing Royal Road stories with rating and chapter count" width="671" height="920" loading="lazy">
+            <a href="screenshots/search_results.png" target="_blank" rel="noopener"><img src="screenshots/search_results.png"
+                 alt="Search results listing Royal Road stories with rating and chapter count" width="670" height="921" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">3</div>
+            <div class="walk-step-num">03A</div>
             <h3>Browse results</h3>
             <p>Results show rating, chapter count, and word count. Sort by rating, words, or chapters to surface the best matches.</p>
           </div>
@@ -451,11 +636,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/download_by_id_or_url.png"
-                 alt="Download story by entering a Royal Road URL or fiction ID" width="671" height="920" loading="lazy">
+            <a href="screenshots/download_by_id_or_url.png" target="_blank" rel="noopener"><img src="screenshots/download_by_id_or_url.png"
+                 alt="Download story by entering a Royal Road URL or fiction ID" width="670" height="922" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">2</div>
+            <div class="walk-step-num">02B</div>
             <h3>Enter a URL or story ID</h3>
             <p>If you already know the story, paste its Royal Road URL or just the fiction ID (the number from the URL). No browsing needed.</p>
           </div>
@@ -465,11 +650,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/search_chapter_select.png"
-                 alt="Chapter range selection screen" width="671" height="920" loading="lazy">
+            <a href="screenshots/search_chapter_select.png" target="_blank" rel="noopener"><img src="screenshots/search_chapter_select.png"
+                 alt="Chapter range selection screen" width="668" height="923" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">3</div>
+            <div class="walk-step-num">04</div>
             <h3>Choose chapters</h3>
             <p>Optionally select a chapter range — download the whole story or just the chapters you want.</p>
           </div>
@@ -477,11 +662,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/search_download_in_progress.png"
-                 alt="Download progress screen with ETA" width="671" height="920" loading="lazy">
+            <a href="screenshots/search_download_in_progress.png" target="_blank" rel="noopener"><img src="screenshots/search_download_in_progress.png"
+                 alt="Download progress screen with ETA" width="674" height="924" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">4</div>
+            <div class="walk-step-num">05</div>
             <h3>Downloading</h3>
             <p>A progress bar shows how many chapters have been fetched, with an estimated time to completion.</p>
           </div>
@@ -489,11 +674,11 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/search_finished_download.png"
-                 alt="Download complete confirmation screen" width="671" height="920" loading="lazy">
+            <a href="screenshots/search_finished_download.png" target="_blank" rel="noopener"><img src="screenshots/search_finished_download.png"
+                 alt="Download complete confirmation screen" width="668" height="923" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
-            <div class="walk-step-num">5</div>
+            <div class="walk-step-num">06</div>
             <h3>Done</h3>
             <p>The EPUB is saved and ready to read. Open it directly from the confirmation screen or find it in your library.</p>
           </div>
@@ -511,8 +696,8 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/main_screen.png"
-                 alt="Downloaded stories library with cover art" width="671" height="920" loading="lazy">
+            <a href="screenshots/main_screen.png" target="_blank" rel="noopener"><img src="screenshots/main_screen.png"
+                 alt="Downloaded stories library with cover art" width="671" height="921" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
             <h3>Your library</h3>
@@ -522,8 +707,8 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/story_menu.png"
-                 alt="Per-story options menu with open, update, and delete actions" width="671" height="920" loading="lazy">
+            <a href="screenshots/story_menu.png" target="_blank" rel="noopener"><img src="screenshots/story_menu.png"
+                 alt="Per-story options menu with open, update, and delete actions" width="668" height="921" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
             <h3>Story options</h3>
@@ -533,8 +718,8 @@
 
         <div class="walk-step">
           <div class="walk-step-img">
-            <img src="screenshots/update_dialog.png"
-                 alt="Update dialog showing new chapters available to download" width="671" height="920" loading="lazy">
+            <a href="screenshots/update_dialog.png" target="_blank" rel="noopener"><img src="screenshots/update_dialog.png"
+                 alt="Update dialog showing new chapters available to download" width="670" height="923" loading="lazy"></a>
           </div>
           <div class="walk-step-body">
             <h3>Updates</h3>
@@ -551,14 +736,14 @@
     <div class="container">
       <h2>Installation</h2>
 
-      <p style="margin-bottom:1.1rem;">
+      <p>
         The easiest way to install is via the
         <a href="https://github.com/omer-faruq/appstore.koplugin" target="_blank" rel="noopener">KOReader App Store plugin</a>
         — open it on your device, search for <strong>Royal Road Downloader</strong>, and tap Install.
       </p>
 
       <p>
-        To install manually: download the latest release, unzip it, and copy the <code style="color:var(--teal);font-family:'SF Mono','Fira Mono',Consolas,monospace;font-size:0.9em;">royalroad.koplugin</code> folder
+        To install manually: download the latest release, unzip it, and copy the <code>royalroad.koplugin</code> folder
         into your KOReader plugins directory for your device, then restart KOReader.
       </p>
       <div class="table-wrap">
@@ -589,7 +774,7 @@
           </tbody>
         </table>
       </div>
-      <p style="margin-top:1.1rem;">
+      <p>
         After installation the plugin is accessible under <strong>Menu &rarr; Tools &rarr; Royal Road Downloader</strong>.
       </p>
     </div>
@@ -618,7 +803,7 @@
         github.com/DavidMakin/royalroad.koplugin
       </a>
     </p>
-    <p style="margin-top:0.4rem;">
+    <p class="footer-fine">
       Not affiliated with Royal Road or KOReader. Use responsibly and in accordance with Royal Road's terms of service.
     </p>
   </div>
