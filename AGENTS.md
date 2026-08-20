@@ -29,10 +29,7 @@ royalroad.koplugin/
 
 ## Git & Commits (MANDATORY)
 
-**Commits to this repo are ALWAYS made by the user under the identity DavidMakin.**
-
-- Never run `git commit` yourself. Stage files and hand over the exact commit command to the user.
-- The user sometimes works from a work PC that switches git to a work admin identity — always verify the configured identity (`git config user.name` / `user.email`) before committing on their behalf, and never commit under the work identity.
+- 1 thing/fix/new feature per commit
 - Always attribute the bug reporter when committing a fix for an issue: add a `Co-authored-by:` trailer with their GitHub identity.
 
 
