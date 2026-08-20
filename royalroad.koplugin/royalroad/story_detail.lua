@@ -137,7 +137,15 @@ function M:showStoryOptions(fiction_id)
         addMeta(T(_("Last chapter: %1"), lcd))
     end
     if read_percent and read_percent > 0 then
-        addMeta(T(_("Progress: %1%"), math.floor(read_percent * 100 + 0.5)))
+        local progress_text
+        if chapter_count > 0 then
+            local chapters_read = math.min(chapter_count, math.max(0, math.floor(read_percent * chapter_count + 0.5)))
+            progress_text = T(_("Progress: %1% (%2/%3 chapters)"),
+                math.floor(read_percent * 100 + 0.5), chapters_read, chapter_count)
+        else
+            progress_text = T(_("Progress: %1%"), math.floor(read_percent * 100 + 0.5))
+        end
+        addMeta(progress_text)
     end
 
     local header = HorizontalGroup:new{ align = "top" }

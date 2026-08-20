@@ -29,6 +29,9 @@ local M = {}
 function M:_buildManageItemTable()
     local filter_text = self._manage_filter or ""
 
+    local last_read_cache = self._last_read_cache or {}
+    self._last_read_cache = last_read_cache
+
     local item_table = {}
     for fiction_id, story in pairs(self.downloaded_stories) do
         story.fiction_id = fiction_id
@@ -45,13 +48,29 @@ function M:_buildManageItemTable()
             display_title = display_title .. T(_(" [+%1 new]"), story.unread_new_count)
         end
         story.text = display_title
+
+        -- Reading progress for the manage list/mosaic, read from the
+        -- DocSettings sidecar KOReader keeps per book.
+        story.read_percent  = nil
+        story.chapters_read = nil
+        local n_chapters = #(story.chapter_urls or {})
+        if story.epub_path and n_chapters > 0 then
+            local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
+            if ok and ds and ds.data then
+                last_read_cache[fiction_id] = ds.data.last_read_time or (ds.data.last_xpointer and 1 or 0)
+                if ds.data.percent_finished then
+                    local pct = math.max(0, math.min(1, ds.data.percent_finished))
+                    story.read_percent  = pct
+                    story.chapters_read = math.min(n_chapters, math.max(0, math.floor(pct * n_chapters + 0.5)))
+                end
+            end
+        end
+
         if filter_text == "" or (story.title or ""):lower():find(filter_text:lower(), 1, true) then
             table.insert(item_table, story)
         end
     end
     local sort_mode = self.manage_sort_mode or "title"
-    local last_read_cache = self._last_read_cache or {}
-    self._last_read_cache = last_read_cache
     local function last_read_time(story)
         if story.epub_path then
             local ok, ds = pcall(function() return DocSettings:open(story.epub_path) end)
