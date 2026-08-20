@@ -127,27 +127,41 @@ function M:extractChapterTitle(html)
     return title or "Chapter"
 end
 
-local function removeHiddenElements(content, html)
-    local hidden = {}
+local function escapeLuaPattern(s)
+    return (s:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1"))
+end
 
-    -- Find classes with display:none
-    for style in html:gmatch("<style.->(.-)</style>") do
-        for class in style:gmatch("%%.(%w[%w_-]*)%s*%b{}") do
-            local rule = style:match("%%." .. class .. "%s*(%b{})") 
-            if rule and rule:lower():find("display%s*:%s*none") then
-                hidden[class] = true
+-- Royal Road injects decoy paragraphs/spans into chapter content and hides
+-- them with a per-page generated CSS class (e.g. ".a1b2c3{display:none;speak:never;}")
+-- so that copy-pasted or scraped text carries an invisible watermark. Find
+-- those generated class names by scanning <style> blocks for the display:none +
+-- speak:never/none signature.
+local function findHiddenClasses(html)
+    local hidden = {}
+    for style_body in html:gmatch("<style[^>]*>(.-)</style>") do
+        local clean = style_body:gsub("%s+", "")
+        for cls, body in clean:gmatch("%.([%w%-_]+)%{([^}]*)%}") do
+            if body:find("display:none", 1, true)
+                and (body:find("speak:never", 1, true) or body:find("speak:none", 1, true)) then
+                hidden[cls] = true
             end
         end
     end
+    return hidden
+end
 
-    -- Remove elements with those classes
-    for class in pairs(hidden) do
-        content = content:gsub(
-            '<span([^>]-class="[^"]*%f[%w_%%-]' .. class .. '%f[^%w_%%-][^"]*"[^>]*)>.-</span>',
-            ""
-        )
+-- Removes elements matching the given hidden class names (whole-word match
+-- within the class attribute) from a fragment of HTML, plus anything
+-- explicitly hidden via an inline display:none style as a defensive extra.
+local function stripHiddenElements(content, hidden_classes)
+    if hidden_classes then
+        for cls in pairs(hidden_classes) do
+            local esc = escapeLuaPattern(cls)
+            local pattern = '<(%a[%w]*)[^>]-%sclass%s*=%s*"[^"]-%f[%w]' .. esc .. '%f[%W][^"]*"[^>]*>.-</%1%s*>'
+            content = content:gsub(pattern, "")
+        end
     end
-
+    content = content:gsub('<(%a[%w]*)[^>]-%sstyle%s*=%s*"[^"]-display%s*:%s*none[^"]*"[^>]*>.-</%1%s*>', "")
     return content
 end
 
@@ -174,7 +188,7 @@ function M:extractChapterContent(html)
             depth = depth - 1
             if depth == 0 then
                 local content = html:sub(content_start, close_pos - 1)
-                return removeHiddenElements(content, html)
+                return stripHiddenElements(content, findHiddenClasses(html))
             end
             pos = close_pos + 6
         end
