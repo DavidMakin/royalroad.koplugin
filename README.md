@@ -1,10 +1,12 @@
 # Royal Road Downloader — KOReader Plugin
 
+[![Release](https://img.shields.io/github/v/release/DavidMakin/royalroad.koplugin?style=flat&label=release)](https://github.com/DavidMakin/royalroad.koplugin/releases/latest)
+
 Download web fiction from [Royal Road](https://www.royalroad.com/) directly to your e-reader as EPUB files, ready to read offline.
 
 <table><tr>
-<td align="center"><img src="docs/screenshots/search_results.png" width="260" alt="Search results"><br><sub><b>Search stories</b></sub></td>
-<td align="center"><img src="docs/screenshots/main_screen.png" width="260" alt="Your library"><br><sub><b>Your library</b></sub></td>
+<td align="center"><img src="docs/screenshots/main_mosaic.png" width="260" alt="Your library"><br><sub><b>Your library</b></sub></td>
+<td align="center"><img src="docs/screenshots/search_results.png" width="260" alt="Search stories"><br><sub><b>Search stories</b></sub></td>
 <td align="center"><img src="docs/screenshots/update_dialog.png" width="260" alt="Check for updates"><br><sub><b>Check for updates</b></sub></td>
 </tr></table>
 
@@ -19,6 +21,7 @@ Royal Road hosts thousands of free web novels. This plugin lets you download any
 - Browse and search Royal Road without leaving your device
 - Download complete stories or resume interrupted downloads
 - Automatic updates — check for new chapters and add them to your existing EPUB
+- Reading progress shown on your library covers and in the downloads list
 - Cover images, chapter titles, and author metadata included
 - Respects Royal Road's servers with built-in rate limiting
 
@@ -70,13 +73,15 @@ https://www.royalroad.com/fiction/21220/mother-of-learning
                                    fiction ID
 ```
 
-Go to **Tools → Royal Road → Download story**, enter the ID, and tap Download.
+Go to **Tools → Royal Road → Download story**, enter the ID, and tap Download. Pasting the full URL works too.
+
+<img src="docs/screenshots/download_by_id_or_url.png" width="300" alt="Download by URL or ID"><br><sub><b>Download by URL or ID</b></sub>
 
 ### Managing downloads
 
-**Tools → Royal Road → My downloads** shows all your downloaded stories with cover images.
+**Tools → Royal Road → My downloads** shows all your downloaded stories with cover art. The mosaic view adds a progress bar to each cover, and the list view shows how many chapters you've read.
 
-<img src="docs/screenshots/downloads.png" width="300" alt="Downloads screen"><br><sub><b>My downloads</b></sub>
+<img src="docs/screenshots/main_mosaic.png" width="300" alt="Downloads screen"><br><sub><b>My downloads</b></sub>
 
 From here you can:
 - Open a story to read it
