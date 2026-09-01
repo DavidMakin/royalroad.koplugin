@@ -225,33 +225,6 @@ function M:showStoryOptions(fiction_id)
     end
 
 
-    if story.cover_url and story.cover_url ~= "" then
-        table.insert(buttons, {{
-            text = _("\u{21BA} Refresh cover"),
-            callback = function()
-                UIManager:close(self.story_detail_dialog)
-                UIManager:show(InfoMessage:new{ text = _("Fetching cover..."), timeout = 2 })
-                UIManager:scheduleIn(0.1, function()
-                    local image_data, mime_type, extension = self:fetchImage(story.cover_url)
-                    if image_data then
-                        story.cover_image_data = image_data
-                        story.cover_mime = mime_type
-                        story.cover_ext = extension
-                        story.cover_bb = nil
-                        self:saveSettings()
-                        local existing_chapters, ch_err = self:extractChaptersFromEPUB(story.epub_path)
-                        if existing_chapters then
-                            local cover_image = { data = image_data, mime_type = mime_type, extension = extension }
-                            self:saveAsEPUB(fiction_id, story.title, story.author, existing_chapters, cover_image, story.chapter_urls, story.cover_url, story.epub_path)
-                        end
-                        UIManager:show(InfoMessage:new{ text = _("Cover updated!"), timeout = 2 })
-                    else
-                        UIManager:show(InfoMessage:new{ text = _("Failed to fetch cover."), timeout = 3 })
-                    end
-                end)
-            end,
-        }})
-    end
     if Device:canOpenLink() then
         local story_url = C.BASE_URL .. "/fiction/" .. fiction_id
         table.insert(buttons, {{
