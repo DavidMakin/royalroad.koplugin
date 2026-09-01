@@ -97,7 +97,16 @@ function M:clearNewBadges(only)
             cleared = true
         end
     end
-    if cleared then self:saveSettings() end
+    if cleared then
+        self:saveSettings()
+        -- The downloads list bakes the "+N new" title suffix and the ribbon
+        -- overlay into its item widgets at build time (downloads_ui.lua
+        -- _buildManageItemTable, widgets.lua applyBadges), so clearing the
+        -- field alone leaves the badge on screen until the menu is rebuilt.
+        -- Only refresh an already-open menu: refreshManageMenu() opens the
+        -- downloads list when there is none.
+        if self.manage_menu then self:refreshManageMenu() end
+    end
     return cleared
 end
 

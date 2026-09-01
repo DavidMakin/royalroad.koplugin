@@ -258,7 +258,6 @@ function M:manageDownloads()
             table.insert(buttons, #buttons, {{ text = _("Clear new-chapters badge"), callback = function()
                 close()
                 downloader:clearNewBadges({ [story.fiction_id] = true })
-                downloader:refreshManageMenu()
             end }})
         end
         local button_table = ButtonTable:new{

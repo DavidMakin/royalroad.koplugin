@@ -220,7 +220,6 @@ function M:showStoryOptions(fiction_id)
                 self:clearNewBadges({ [fiction_id] = true })
                 UIManager:close(self.story_detail_dialog)
                 UIManager:setDirty(nil, "ui")
-                if self.manage_menu then self:refreshManageMenu() end
             end,
         }})
     end
