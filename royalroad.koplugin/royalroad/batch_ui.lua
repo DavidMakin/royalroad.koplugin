@@ -120,6 +120,8 @@ function M:batchUpdate(selected)
     end
     if #targets == 0 then return end
 
+    self:clearNewBadges(selected)
+
     local stories_with_updates = {}
     local up_to_date = {}
     local errors = {}

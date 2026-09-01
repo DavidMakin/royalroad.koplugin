@@ -326,15 +326,7 @@ function M:checkSingleStoryForUpdates(fiction_id)
     local story = self.downloaded_stories[fiction_id]
     if not story then return end
 
-    -- Selecting the check acknowledges the new-chapter state immediately:
-    -- clear the flag that drives the "new" ribbon (widgets.lua newBadge) as
-    -- soon as the check starts, regardless of whether the fetch succeeds.
-    -- If the check finds updates and the user downloads them, the download
-    -- path re-sets unread_new_count to the number of new chapters.
-    if story.unread_new_count then
-        story.unread_new_count = nil
-        self:saveSettings()
-    end
+    self:clearNewBadges({ [fiction_id] = true })
 
     local checking_msg = InfoMessage:new{
         text = T(_("Checking %1 for updates..."), story.title),

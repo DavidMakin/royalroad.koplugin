@@ -83,6 +83,24 @@ function M:_computeStoryUpdate(fiction_id, story)
     }, false
 end
 
+-- Selecting a check acknowledges the new-chapter state immediately: clear the
+-- flag that drives the "new" ribbon (widgets.lua newBadge) before any fetch,
+-- so the badge reflects the user's intent rather than the fetch outcome. A
+-- failed fetch does not restore it; if updates are downloaded, the download
+-- path re-sets unread_new_count. `only` is an optional fiction_id -> truthy
+-- set limiting the clear to those stories; nil clears every tracked story.
+function M:clearNewBadges(only)
+    local cleared = false
+    for fiction_id, story in pairs(self.downloaded_stories) do
+        if (not only or only[fiction_id]) and story.unread_new_count then
+            story.unread_new_count = nil
+            cleared = true
+        end
+    end
+    if cleared then self:saveSettings() end
+    return cleared
+end
+
 function M:checkForUpdates()
     if self:countDownloadedStories() == 0 then
         UIManager:show(InfoMessage:new{
@@ -104,21 +122,7 @@ end
 
 function M:performUpdateCheck()
     NetworkMgr:runWhenOnline(function()
-        -- Selecting the check acknowledges the new-chapter state immediately:
-        -- clear the flag that drives the "new" ribbon (widgets.lua newBadge)
-        -- for every story as soon as the batch check starts, regardless of
-        -- whether individual fetches succeed. If any updates are downloaded,
-        -- the download path re-sets unread_new_count per story.
-        local any_badge_cleared = false
-        for _, story in pairs(self.downloaded_stories) do
-            if story.unread_new_count then
-                story.unread_new_count = nil
-                any_badge_cleared = true
-            end
-        end
-        if any_badge_cleared then
-            self:saveSettings()
-        end
+        self:clearNewBadges()
 
         local stories_with_updates = {}
         local errors = {}
