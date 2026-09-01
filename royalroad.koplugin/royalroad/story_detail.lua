@@ -215,7 +215,7 @@ function M:showStoryOptions(fiction_id)
 
     if (story.unread_new_count or 0) > 0 then
         table.insert(buttons, {{
-            text = T(_("\u{2713} Clear \"+%1 new\" badge"), story.unread_new_count),
+            text = _("\u{2713} Clear new status"),
             callback = function()
                 self:clearNewBadges({ [fiction_id] = true })
                 UIManager:close(self.story_detail_dialog)
