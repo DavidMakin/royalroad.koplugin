@@ -235,27 +235,35 @@ function M:manageDownloads()
             title          = story.title,
             close_callback = close,
         }
+        local buttons = {
+            {{ text = _("Open"), callback = function()
+                close() downloader:showStoryOptions(story.fiction_id)
+            end }},
+            {{ text = _("Check for updates"), callback = function()
+                close() downloader:checkSingleStoryForUpdates(story.fiction_id)
+            end }},
+            {{ text = story.excluded and _("Include in updates") or _("Exclude from updates"), callback = function()
+                close()
+                -- The toggle never touches unread_new_count: the badge only
+                -- goes away when a check is selected (updater.lua).
+                story.excluded = not story.excluded
+                downloader:saveSettings()
+                downloader:refreshManageMenu()
+            end }},
+            {{ text = _("Delete"), callback = function()
+                close() downloader:deleteStoryCompletely(story.fiction_id)
+            end }},
+        }
+        if (story.unread_new_count or 0) > 0 then
+            table.insert(buttons, #buttons, {{ text = _("Clear new-chapters badge"), callback = function()
+                close()
+                downloader:clearNewBadges({ [story.fiction_id] = true })
+                downloader:refreshManageMenu()
+            end }})
+        end
         local button_table = ButtonTable:new{
             width   = width,
-            buttons = {
-                {{ text = _("Open"), callback = function()
-                    close() downloader:showStoryOptions(story.fiction_id)
-                end }},
-                {{ text = _("Check for updates"), callback = function()
-                    close() downloader:checkSingleStoryForUpdates(story.fiction_id)
-                end }},
-                {{ text = story.excluded and _("Include in updates") or _("Exclude from updates"), callback = function()
-                    close()
-                    -- The toggle never touches unread_new_count: the badge only
-                    -- goes away when a check is selected (updater.lua).
-                    story.excluded = not story.excluded
-                    downloader:saveSettings()
-                    downloader:refreshManageMenu()
-                end }},
-                {{ text = _("Delete"), callback = function()
-                    close() downloader:deleteStoryCompletely(story.fiction_id)
-                end }},
-            },
+            buttons = buttons,
         }
         dialog = CenterContainer:new{
             dimen = Device.screen:getSize(),

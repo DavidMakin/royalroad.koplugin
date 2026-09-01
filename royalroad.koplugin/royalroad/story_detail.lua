@@ -32,9 +32,9 @@ function M:showStoryOptions(fiction_id)
 
     -- Note: unread_new_count is deliberately NOT cleared here. The "new
     -- chapters" ribbon (widgets.lua newBadge) is meant to persist until the
-    -- next update check for this story (checkSingleStoryForUpdates) or an
-    -- "Update all" pass; opening the options dialog does not acknowledge
-    -- the new chapters.
+    -- next update check for this story (checkSingleStoryForUpdates), an
+    -- "Update all" pass, or the explicit "Clear +N new badge" button below;
+    -- merely opening the options dialog does not acknowledge the new chapters.
 
     local epub_exists = story.epub_path and lfs.attributes(story.epub_path, "mode") ~= nil
     local has_dupes = urls.hasDuplicateKeys(story.chapter_urls or {})
@@ -212,6 +212,18 @@ function M:showStoryOptions(fiction_id)
             if self.manage_menu then self:refreshManageMenu() end
         end,
     }})
+
+    if (story.unread_new_count or 0) > 0 then
+        table.insert(buttons, {{
+            text = T(_("\u{2713} Clear \"+%1 new\" badge"), story.unread_new_count),
+            callback = function()
+                self:clearNewBadges({ [fiction_id] = true })
+                UIManager:close(self.story_detail_dialog)
+                UIManager:setDirty(nil, "ui")
+                if self.manage_menu then self:refreshManageMenu() end
+            end,
+        }})
+    end
 
     if story.partial_of then
         table.insert(buttons, {{
