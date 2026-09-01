@@ -32,12 +32,11 @@ function M:extractChapterURLs(html, fiction_id)
     local chapters = {}
     local seen = {}
 
-    local story_slug = html:match('/fiction/' .. fiction_id .. '/([^/"]+)') or "story"
-
     if html:find('window%.chapters%s*=') then
-        for chapter_id, slug in html:gmatch('"id":(%d+),"volumeId":%d+,"title":"[^"]*","slug":"([^"]+)"') do
-            local full_url = string.format(C.BASE_URL .. "/fiction/%s/%s/chapter/%s/%s",
-                fiction_id, story_slug, chapter_id, slug)
+        -- Read each entry's own "url" field: field order and "volumeId":null
+        -- (chapters outside any volume) must not decide what we pick up.
+        for chapter_path in html:gmatch('"url":"(/fiction/' .. fiction_id .. '/[^"]+/chapter/%d+/[^"]+)"') do
+            local full_url = C.BASE_URL .. chapter_path
             if not seen[full_url] then
                 seen[full_url] = true
                 table.insert(chapters, full_url)
