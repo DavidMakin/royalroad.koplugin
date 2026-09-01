@@ -208,14 +208,16 @@ function M:extractChaptersFromEPUB(epub_path)
     return chapters
 end
 
--- Builds manifest/spine/nav structures for OPF, NCX and nav.xhtml.
--- Returns: manifest_items, spine_items, nav_points, nav_entries, nav_landmarks
+-- Builds manifest/spine/nav structures for OPF, NCX, nav.xhtml and toc.xhtml.
+-- Returns: manifest_items, spine_items, nav_points, nav_entries, nav_landmarks,
+--          toc_entries (chapter links only, for the reader-visible contents page)
 function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
     local manifest_items = {}
     local spine_items    = {}
     local nav_points     = {}
     local nav_entries    = {}
     local nav_landmarks  = {}
+    local toc_entries    = {}
     local play_order     = 1
 
     local has_cover = cover_image and cover_image.data
@@ -261,8 +263,10 @@ function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
       <navLabel><text>%s</text></navLabel>
       <content src="%s"/>
     </navPoint>]], play_order, play_order, esc_ch, chapter_file))
-        table.insert(nav_entries, string.format(
-            '      <li><a href="%s">%s</a></li>', chapter_file, esc_ch))
+        local entry = string.format(
+            '      <li><a href="%s">%s</a></li>', chapter_file, esc_ch)
+        table.insert(nav_entries, entry)
+        table.insert(toc_entries, entry)
         if i == 1 then first_chapter_file = chapter_file end
         play_order = play_order + 1
     end
@@ -273,11 +277,29 @@ function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
             first_chapter_file))
     end
 
+    -- Reader-visible contents page. It is the LAST spine item on purpose:
+    -- KOReader stores the reading position as an xpointer into
+    -- /body/DocFragment[N], numbered by spine order, so a page inserted ahead
+    -- of the chapters would shift every already-saved position by one chapter
+    -- the next time the EPUB is rewritten. Appended after them, the page is
+    -- free to grow from one page to several as chapters are added without
+    -- moving any chapter's index. Never move it earlier in the spine.
+    table.insert(manifest_items,
+        '    <item id="toc-page" href="toc.xhtml" media-type="application/xhtml+xml"/>')
+    table.insert(spine_items, '    <itemref idref="toc-page"/>')
+    table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
+      <navLabel><text>Table of Contents</text></navLabel>
+      <content src="toc.xhtml"/>
+    </navPoint>]], play_order, play_order))
+    table.insert(nav_entries,   '      <li><a href="toc.xhtml">Table of Contents</a></li>')
+    table.insert(nav_landmarks, '      <li><a epub:type="toc" href="toc.xhtml">Table of Contents</a></li>')
+    play_order = play_order + 1
+
     table.insert(manifest_items, '    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>')
     table.insert(manifest_items, '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>')
     table.insert(manifest_items, '    <item id="css" href="royalroad.css" media-type="text/css"/>')
 
-    return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks
+    return manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, toc_entries
 end
 
 function M:_buildOPF(fiction_id, book_id, escaped_title, escaped_author, cover_image,
@@ -354,6 +376,25 @@ function M:_buildNav(escaped_title, nav_entries, nav_landmarks)
 </html>]], escaped_title, table.concat(nav_entries, "\n"), table.concat(nav_landmarks, "\n"))
 end
 
+-- Reader-visible contents page, rebuilt from the current chapter list on every
+-- save, so it always matches the chapters actually in the book.
+function M:_buildTocPage(escaped_title, toc_entries)
+    return string.format([[<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>%s - Contents</title>
+  <link rel="stylesheet" type="text/css" href="royalroad.css"/>
+</head>
+<body>
+  <h1>Contents</h1>
+  <ol>
+%s
+  </ol>
+</body>
+</html>]], escaped_title, table.concat(toc_entries, "\n"))
+end
+
 function M:_addChapters(epub, chapters)
     for i, chapter in ipairs(chapters) do
         local esc_ch        = self:escapeXML(chapter.title)
@@ -417,7 +458,7 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 </container>]]
         epub:addFileFromMemory("META-INF/container.xml", container_xml)
 
-        local manifest_items, spine_items, nav_points, nav_entries, nav_landmarks =
+        local manifest_items, spine_items, nav_points, nav_entries, nav_landmarks, toc_entries =
             self:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
 
         epub:addFileFromMemory("content.opf",
@@ -427,6 +468,8 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
             self:_buildNCX(book_id, escaped_title, escaped_author, nav_points))
         epub:addFileFromMemory("nav.xhtml",
             self:_buildNav(escaped_title, nav_entries, nav_landmarks))
+        epub:addFileFromMemory("toc.xhtml",
+            self:_buildTocPage(escaped_title, toc_entries))
 
         epub:addFileFromMemory("royalroad.css", CSS)
 

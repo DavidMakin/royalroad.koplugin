@@ -73,6 +73,12 @@ KOReader plugins follow a specific structure:
 - Royal Road serves chapter lists in `window.chapters` JSON but **always truncated** (verified: a 261-chapter story serves ~184 entries). A single HTML fetch is never a complete chapter list. Anything that decides to *drop* chapters based on the live list must guard: treat the live list as authoritative only when `#current >= #deduped_stored`.
 - `repairStoryDuplicates(fiction_id)` (in `repair.lua`) rebuilds a corrupted EPUB: pairs EPUB chapters with `story.chapter_urls` by index, dedupes by identity key (last occurrence wins), and — only when the live list is provably complete — drops chapters deleted from the site. Preserves cover and reading position.
 
+### In-Book Contents Page (`toc.xhtml`)
+
+- Every EPUB carries a reader-visible contents page listing one link per chapter, built by `_buildTocPage` in `epub.lua` from the `toc_entries` list `_buildTocStructures` collects in its chapter loop. `saveAsEPUB` rewrites the whole EPUB on every update, so the page is regenerated — and therefore current — each time chapters are added.
+- **The contents page is the last spine item, and must stay there.** KOReader stores the reading position as an xpointer into `/body/DocFragment[N]`, where `N` is the spine index. A page inserted ahead of the chapters would shift every already-saved position by one chapter the next time the EPUB is rewritten. Last in the spine, the page is free to grow from one page to several as chapters are added without moving any chapter's index. Do not move it earlier for cosmetic reasons.
+- It is reached from KOReader's TOC menu, not by paging: `_buildTocStructures` adds a `Table of Contents` navPoint (NCX), a nav entry (`nav.xhtml`), and an `epub:type="toc"` landmark. `nav.xhtml` remains the machine-readable nav document and stays **out** of the spine.
+
 ### Story Exclusion (skip in "Update all")
 
 - A story is excluded when its settings carry `story.excluded == true`; the field persists with all other story settings (any full-field settings save round-trip preserves it, no per-field copy needed).
