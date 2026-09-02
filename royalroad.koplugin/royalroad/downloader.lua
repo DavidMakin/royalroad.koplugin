@@ -296,6 +296,10 @@ function M:showChapterRangeDialog(fiction_id, story_title, author, chapter_urls,
     local function closeDialog()
         input_text:onCloseKeyboard()
         UIManager:close(range_dialog)
+        -- The dialog is shown with a full refresh because the keyboard and the
+        -- cover image paint outside its own area; tearing it down needs the
+        -- same, or the partial refresh leaves the popup ghosted on e-ink.
+        UIManager:setDirty(nil, "full")
     end
 
     local function onDownload()
