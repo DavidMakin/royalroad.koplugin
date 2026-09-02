@@ -39,6 +39,20 @@ local STORY_COVER_HEIGHT = screen and screen:scaleBySize(100) or 100
 -- height never reaches. At the defaults a bar this thin paints its black border
 -- and no fill at all — a solid line that looks the same at 0% and 90%.
 local PROGRESS_BAR_HEIGHT = screen and screen:scaleBySize(3) or 3
+
+local function progressBar(width, percentage)
+    return ProgressWidget:new{
+        width      = width,
+        height     = PROGRESS_BAR_HEIGHT,
+        percentage = percentage,
+        margin_h   = 0,
+        margin_v   = 0,
+        bordersize = 0,
+        radius     = 0,
+        fillcolor  = Blitbuffer.COLOR_DARK_GRAY,
+        bgcolor    = Blitbuffer.COLOR_LIGHT_GRAY,
+    }
+end
 local STORY_COVER_WIDTH  = math.floor(STORY_COVER_HEIGHT * 2 / 3)
 local STORY_ITEM_PAD     = screen and screen:scaleBySize(8) or 8
 
@@ -230,6 +244,10 @@ function StoryListItem:init()
             max_width = text_width,
             fgcolor   = Blitbuffer.COLOR_DARK_GRAY,
         })
+        if story.read_percent then
+            table.insert(info_group, VerticalSpan:new{ width = 2 })
+            table.insert(info_group, progressBar(text_width, story.read_percent))
+        end
     end
 
     local bg = self.story.missing and Blitbuffer.gray(0.8) or Blitbuffer.COLOR_WHITE
@@ -368,17 +386,7 @@ function StoryCoverCell:init()
     local content = VerticalGroup:new{ align = "center", cover_widget }
     if self.story.read_percent then
         table.insert(content, VerticalSpan:new{ width = 2 })
-        table.insert(content, ProgressWidget:new{
-            width      = self.cover_width,
-            height     = PROGRESS_BAR_HEIGHT,
-            percentage = self.story.read_percent,
-            margin_h   = 0,
-            margin_v   = 0,
-            bordersize = 0,
-            radius     = 0,
-            fillcolor  = Blitbuffer.COLOR_DARK_GRAY,
-            bgcolor    = Blitbuffer.COLOR_LIGHT_GRAY,
-        })
+        table.insert(content, progressBar(self.cover_width, self.story.read_percent))
     end
     if self.show_title then
         local title_widget = TextBoxWidget:new{
