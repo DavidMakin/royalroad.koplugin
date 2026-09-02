@@ -125,6 +125,21 @@ function M:escapeXML(text)
     return util.htmlEscape(text)
 end
 
+-- Titles come back out of the EPUB still escaped: saveAsEPUB writes them
+-- through util.htmlEscape, which turns "/" into "&#47;" and "&" into "&amp;".
+-- Reading one back raw and saving it again escapes the escape, so a title
+-- picks up a layer of "&amp;" on every update until "&#47;" and stray "amp;"
+-- show up in the reader. Decode until it stops changing, which both undoes the
+-- single expected layer and heals books that already accumulated several.
+function M:_decodeTitle(title)
+    for _ = 1, 5 do
+        local decoded = util.htmlEntitiesToUtf8(title)
+        if decoded == title then break end
+        title = decoded
+    end
+    return title
+end
+
 function M:extractChaptersFromEPUB(epub_path)
     local Archiver = require("ffi/archiver")
 
@@ -186,6 +201,7 @@ function M:extractChaptersFromEPUB(epub_path)
             local title = content:match("<title>([^<]+)</title>")
                        or content:match("<h2>([^<]+)</h2>")
                        or "Untitled Chapter"
+            title = self:_decodeTitle(title)
 
             local chapter_content = content:match('<div class="chapter">.-</h2>(.+)</div>%s*</body>')
             if not chapter_content then
