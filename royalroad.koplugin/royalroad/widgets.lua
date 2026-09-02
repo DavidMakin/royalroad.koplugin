@@ -11,7 +11,6 @@ local ImageWidget    = require("ui/widget/imagewidget")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local OverlapGroup   = require("ui/widget/overlapgroup")
 local ProgressWidget  = require("ui/widget/progresswidget")
-local Size           = require("ui/size")
 local TextBoxWidget  = require("ui/widget/textboxwidget")
 local TextWidget     = require("ui/widget/textwidget")
 local TopContainer   = require("ui/widget/container/topcontainer")
@@ -33,6 +32,13 @@ local EXCLUDED_RIBBON = _plugin_dir .. "/../icons/excluded_ribbon.svg"
 local NEW_RIBBON      = _plugin_dir .. "/../icons/new_ribbon.svg"
 
 local STORY_COVER_HEIGHT = screen and screen:scaleBySize(100) or 100
+-- Reading-progress bar under a mosaic cover. Drawn borderless with no vertical
+-- margin: ProgressWidget subtracts 2*(margin_v + bordersize) from its height to
+-- get the fill area, and its own guard against that going negative
+-- (ProgressWidget:setHeight) only runs via updateStyle(), which a constructor
+-- height never reaches. At the defaults a bar this thin paints its black border
+-- and no fill at all — a solid line that looks the same at 0% and 90%.
+local PROGRESS_BAR_HEIGHT = screen and screen:scaleBySize(3) or 3
 local STORY_COVER_WIDTH  = math.floor(STORY_COVER_HEIGHT * 2 / 3)
 local STORY_ITEM_PAD     = screen and screen:scaleBySize(8) or 8
 
@@ -356,7 +362,7 @@ function StoryCoverCell:init()
     cover_widget = applyBadges(cover_widget, self.cover_width, self.cover_height, self.story)
 
     local title_height = math.ceil(14 * 1.3) * 2
-    local progress_bar_h = self.story.read_percent and (2 + Size.line.medium) or 0
+    local progress_bar_h = self.story.read_percent and (2 + PROGRESS_BAR_HEIGHT) or 0
     local inner_h = self.cover_height + progress_bar_h + (self.show_title and (4 + title_height) or 0)
 
     local content = VerticalGroup:new{ align = "center", cover_widget }
@@ -364,10 +370,14 @@ function StoryCoverCell:init()
         table.insert(content, VerticalSpan:new{ width = 2 })
         table.insert(content, ProgressWidget:new{
             width      = self.cover_width,
-            height     = Size.line.medium,
+            height     = PROGRESS_BAR_HEIGHT,
             percentage = self.story.read_percent,
             margin_h   = 0,
             margin_v   = 0,
+            bordersize = 0,
+            radius     = 0,
+            fillcolor  = Blitbuffer.COLOR_DARK_GRAY,
+            bgcolor    = Blitbuffer.COLOR_LIGHT_GRAY,
         })
     end
     if self.show_title then
