@@ -208,7 +208,7 @@ function M:extractChaptersFromEPUB(epub_path)
     return chapters
 end
 
--- Builds manifest/spine/nav structures for OPF, NCX, nav.xhtml and toc.xhtml.
+-- Builds manifest/spine/nav structures for OPF, NCX and nav.xhtml.
 -- Returns: manifest_items, spine_items, nav_points, nav_entries, nav_landmarks,
 --          toc_entries (chapter links only, for the reader-visible contents page)
 function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
@@ -249,23 +249,20 @@ function M:_buildTocStructures(fiction_id, escaped_title, chapters, cover_image)
     table.insert(nav_landmarks, '      <li><a epub:type="frontmatter" href="title.xhtml">Title Page</a></li>')
     play_order = play_order + 1
 
-    -- Reader-visible contents page: cover, title page, contents, then chapters.
-    -- It sits ahead of the chapters, so every chapter's spine index moves by
-    -- one the first time an EPUB written before this existed is rewritten.
-    -- KOReader stores the reading position as an xpointer into
-    -- /body/DocFragment[N] numbered by spine order, so that shift is repaired
-    -- once per book by _shiftSidecarForTocPage(). The page itself may grow
-    -- from one page to several as chapters are added — that changes no index,
-    -- only layout, which xpointers do not depend on.
-    table.insert(manifest_items,
-        '    <item id="toc-page" href="toc.xhtml" media-type="application/xhtml+xml"/>')
-    table.insert(spine_items, '    <itemref idref="toc-page"/>')
+    -- Reader-visible contents: cover, title page, contents, then chapters.
+    -- The contents live at the END of title.xhtml behind a page break, NOT in
+    -- a spine item of their own. KOReader stores the reading position as an
+    -- xpointer into /body/DocFragment[N], numbered by spine order, so any
+    -- extra spine item ahead of the chapters moves every saved position by a
+    -- chapter. Riding along in the title page adds no spine item at all, so
+    -- the contents can grow from one page to many as chapters are added and
+    -- every stored position stays valid. Do not give it its own document.
     table.insert(nav_points, string.format([[    <navPoint id="navpoint-%d" playOrder="%d">
       <navLabel><text>Table of Contents</text></navLabel>
-      <content src="toc.xhtml"/>
+      <content src="title.xhtml#contents"/>
     </navPoint>]], play_order, play_order))
-    table.insert(nav_entries,   '      <li><a href="toc.xhtml">Table of Contents</a></li>')
-    table.insert(nav_landmarks, '      <li><a epub:type="toc" href="toc.xhtml">Table of Contents</a></li>')
+    table.insert(nav_entries,   '      <li><a href="title.xhtml#contents">Table of Contents</a></li>')
+    table.insert(nav_landmarks, '      <li><a epub:type="toc" href="title.xhtml#contents">Table of Contents</a></li>')
     play_order = play_order + 1
 
     local first_chapter_file = nil
@@ -377,61 +374,20 @@ function M:_buildNav(escaped_title, nav_entries, nav_landmarks)
 </html>]], escaped_title, table.concat(nav_entries, "\n"), table.concat(nav_landmarks, "\n"))
 end
 
--- Reader-visible contents page, rebuilt from the current chapter list on every
--- save, so it always matches the chapters actually in the book.
-function M:_buildTocPage(escaped_title, toc_entries)
-    return string.format([[<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-  <title>%s - Contents</title>
-  <link rel="stylesheet" type="text/css" href="royalroad.css"/>
-</head>
-<body>
+-- Contents block appended to the title page, rebuilt from the current chapter
+-- list on every save so it always matches the chapters actually in the book.
+-- The page break makes it read as its own page without being its own spine
+-- item -- see _buildTocStructures for why that distinction matters.
+function M:_buildContentsBlock(toc_entries)
+    if #toc_entries == 0 then return "" end
+    return string.format([[
+  <div id="contents" style="page-break-before: always;">
   <h1>Contents</h1>
   <ol>
 %s
   </ol>
-</body>
-</html>]], escaped_title, table.concat(toc_entries, "\n"))
-end
-
--- One-time reading-position repair. KOReader stores positions as xpointers
--- into /body/DocFragment[N], where N is the spine index, so inserting the
--- contents page ahead of the chapters moves every chapter's N up by one and a
--- stored position would land a chapter early. Books downloaded before the
--- contents page existed carry no `toc_page` flag; the first time one is
--- rewritten, bump every DocFragment index in its sidecar to match the new
--- spine. Runs once per book — the flag is set on the entry straight after.
-function M:_shiftSidecarForTocPage(epub_path)
-    if not epub_path or lfs.attributes(epub_path, "mode") ~= "file" then return false end
-    local ok, DocSettings = pcall(require, "docsettings")
-    if not ok or not DocSettings.hasSidecarFile or not DocSettings:hasSidecarFile(epub_path) then
-        return false
-    end
-
-    local shifted = false
-    local function bump(value)
-        if type(value) == "string" then
-            local new = value:gsub("^(/body/DocFragment%[)(%d+)(%])", function(open, n, close)
-                return open .. tostring(tonumber(n) + 1) .. close
-            end)
-            if new ~= value then shifted = true end
-            return new
-        elseif type(value) == "table" then
-            for k, v in pairs(value) do value[k] = bump(v) end
-        end
-        return value
-    end
-
-    local opened, ds = pcall(function() return DocSettings:open(epub_path) end)
-    if not opened or not ds or not ds.data then return false end
-    bump(ds.data)
-    if shifted then
-        pcall(function() ds:flush() end)
-        logger.info("Royal Road: shifted reading position past the new contents page for", epub_path)
-    end
-    return shifted
+  </div>
+]], table.concat(toc_entries, "\n"))
 end
 
 function M:_addChapters(epub, chapters)
@@ -471,12 +427,6 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         filename = string.format("%s/%s_%s.epub", self.download_dir, safe_title, fiction_id)
     end
 
-    -- Must be decided before the EPUB is overwritten: a story tracked without
-    -- the `toc_page` flag was written before the contents page existed, so its
-    -- saved reading position still counts spine items without it.
-    local existing_entry = self.downloaded_stories[fiction_id]
-    local needs_toc_shift = existing_entry ~= nil and not existing_entry.toc_page
-
     local ok, result = pcall(function()
         local Archiver = require("ffi/archiver")
         local epub = Archiver.Writer:new{}
@@ -513,8 +463,6 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
             self:_buildNCX(book_id, escaped_title, escaped_author, nav_points))
         epub:addFileFromMemory("nav.xhtml",
             self:_buildNav(escaped_title, nav_entries, nav_landmarks))
-        epub:addFileFromMemory("toc.xhtml",
-            self:_buildTocPage(escaped_title, toc_entries))
 
         epub:addFileFromMemory("royalroad.css", CSS)
 
@@ -558,8 +506,9 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
 %s  <p></p>
   <p><small>Downloaded from Royal Road</small></p>
   <p><small><a href="https://www.royalroad.com/fiction/%s">https://www.royalroad.com/fiction/%s</a></small></p>
-</body>
-</html>]], escaped_title, escaped_title, escaped_author, desc_block, fiction_id, fiction_id)
+%s</body>
+</html>]], escaped_title, escaped_title, escaped_author, desc_block, fiction_id, fiction_id,
+            self:_buildContentsBlock(toc_entries))
         epub:addFileFromMemory("title.xhtml", title_xhtml)
 
         self:_addChapters(epub, chapters)
@@ -588,10 +537,6 @@ function M:saveAsEPUB(fiction_id, story_title, author, chapters, cover_image, ch
         entry.epub_path     = filename
         entry.cover_url     = cover_url
         entry.download_date = entry.download_date or os.time()
-        if needs_toc_shift then
-            self:_shiftSidecarForTocPage(filename)
-        end
-        entry.toc_page = true
         entry.last_update   = os.time()
         self.downloaded_stories[fiction_id] = entry
         self:_invalidateStoryCount()
