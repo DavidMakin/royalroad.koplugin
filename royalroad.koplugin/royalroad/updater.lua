@@ -28,9 +28,31 @@ local C            = require("royalroad/constants")
 local urls         = require("royalroad/urls")
 local SCHEDULE_DELAY = C.NETWORK.SCHEDULE_DELAY
 
+-- One-line "what changed" summary for an entry from _computeStoryUpdate.
+local function describeUpdate(story)
+    if story.new_chapters > 0 and story.cover_changed then
+        return T(_("%1 new chapters + new cover"), story.new_chapters)
+    elseif story.cover_changed then
+        return _("New cover available")
+    end
+    return T(_("%1 new chapters"), story.new_chapters)
+end
+
 function M:_computeStoryUpdate(fiction_id, story)
     local story_html = self:fetchPage(C.BASE_URL .. "/fiction/" .. fiction_id)
     if not story_html then return nil, true end
+
+    -- Royal Road's cover URL carries a ?time= cache-buster that changes when
+    -- the author re-uploads the cover, so a stored URL can go stale. Stash the
+    -- fresh URL for the rebuild rather than overwriting story.cover_url now: a
+    -- cancelled update must not hide the change from the next check.
+    local fresh_cover_url = self:extractCoverURL(story_html)
+    local cover_changed = fresh_cover_url ~= nil and story.cover_url ~= nil
+                          and fresh_cover_url ~= story.cover_url
+    if cover_changed then
+        if not self._pending_cover_urls then self._pending_cover_urls = {} end
+        self._pending_cover_urls[fiction_id] = fresh_cover_url
+    end
 
     local current_urls = self:extractChapterURLs(story_html, fiction_id)
     local stored_count = #(story.chapter_urls or {})
@@ -69,7 +91,7 @@ function M:_computeStoryUpdate(fiction_id, story)
         if not fetched_set[urls.chapterKey(u)] then missing_from_epub = missing_from_epub + 1 end
     end
 
-    if new_chapters == 0 and missing_from_epub == 0 then
+    if new_chapters == 0 and missing_from_epub == 0 and not cover_changed then
         return nil, false
     end
 
@@ -80,6 +102,7 @@ function M:_computeStoryUpdate(fiction_id, story)
         current_count = current_count,
         new_chapters  = new_chapters + missing_from_epub,
         current_urls  = new_urls_list,
+        cover_changed = cover_changed,
     }, false
 end
 
@@ -295,7 +318,7 @@ function M:showUpdateMenu(stories_with_updates)
         local story = stories_with_updates[1]
         title = _("Royal Road Story Updates")
         line1 = story.title .. " " .. _("has updates")
-        line2 = T(_("%1 new chapters"), story.new_chapters)
+        line2 = describeUpdate(story)
         buttons = {
             {{
                 text = _("Update"),
@@ -324,7 +347,7 @@ function M:showUpdateMenu(stories_with_updates)
         end
         title = _("Story Updates")
         line1 = T(_("%1 stories have updates"), count)
-        line2 = T(_("%1 new chapters"), total_new)
+        line2 = total_new > 0 and T(_("%1 new chapters"), total_new) or _("New covers available")
         buttons = {
             {{
                 text = T(_("Update All (%1 stories)"), count),
@@ -409,9 +432,10 @@ function M:showUpdatePicker(stories_with_updates)
     local item_table = {}
     for _i, story in ipairs(stories_with_updates) do
         selected[_i] = false
+        local badge = story.new_chapters > 0 and ("+" .. story.new_chapters) or _("new cover")
         table.insert(item_table, {
-            text  = "○  " .. T(_("%1  (+%2)"), story.title, story.new_chapters),
-            title = T(_("%1  (+%2)"), story.title, story.new_chapters),
+            text  = "○  " .. T(_("%1  (%2)"), story.title, badge),
+            title = T(_("%1  (%2)"), story.title, badge),
             story = story,
             idx   = _i,
         })
@@ -635,7 +659,9 @@ function M:updateStory(fiction_id, current_urls, on_complete, batch)
         end
     end
 
-    if #new_urls == 0 then
+    -- A cover-only change yields no new URLs but still needs a rebuild.
+    local pending_cover = self._pending_cover_urls and self._pending_cover_urls[fiction_id]
+    if #new_urls == 0 and not pending_cover then
         UIManager:show(InfoMessage:new{
             text = T(_("%1 is already up to date."), story.title),
         })
@@ -671,7 +697,7 @@ function M:downloadNewChapters(fiction_id, story, existing_chapters, new_urls, a
         progress_text    = batch.chapter_text
         progress_bar     = batch.progress_bar
         progress_dialog  = batch.progress_dialog
-    else
+    elseif total_new > 0 then
         local padding    = Device.screen:scaleBySize(10)
         local text_width = math.floor(Device.screen:getWidth() * 0.8) - padding * 2
         local face       = Font:getFace("smallinfofont")
@@ -762,7 +788,7 @@ function M:downloadNextNewChapter(state, i)
     end
 
     if i > state.total_new then
-        if not state.batch then
+        if not state.batch and state.progress_dialog then
             self:allowScreenSleep()
             UIManager:close(state.progress_dialog)
         end
@@ -837,7 +863,8 @@ function M:rebuildEPUBWithNewChapters(state)
     logger.info("Royal Road: Rebuilding EPUB with", #all_chapters, "total chapters (", #state.existing_chapters, "existing +", #state.new_chapters, "new)")
 
     local cover_image = nil
-    local cover_url = state.story.cover_url
+    local cover_url = (self._pending_cover_urls and self._pending_cover_urls[state.fiction_id])
+                      or state.story.cover_url
     if not cover_url then
         local story_html = self:fetchPage(C.BASE_URL .. "/fiction/" .. state.fiction_id)
         if story_html then
@@ -875,6 +902,8 @@ function M:rebuildEPUBWithNewChapters(state)
         state.on_complete ~= nil
     )
 
+    if self._pending_cover_urls then self._pending_cover_urls[state.fiction_id] = nil end
+
     local entry = self.downloaded_stories[state.fiction_id]
     if entry then
         entry.partial_of          = nil
@@ -892,7 +921,9 @@ function M:rebuildEPUBWithNewChapters(state)
     -- No timer delay needed since saveAsEPUB completed synchronously,
     -- avoiding races with KOReader's file detection.
     local was_complete = state.old_position.summary and state.old_position.summary.status == "complete"
-    if state.old_position.last_xpointer or state.old_position.percent_finished or was_complete then
+    -- A cover-only rebuild changes no chapter, so the stored position stays valid
+    -- and must be left alone (otherwise a finished book is demoted to "reading").
+    if #state.new_chapters > 0 and (state.old_position.last_xpointer or state.old_position.percent_finished or was_complete) then
         local ok, doc_settings = pcall(function()
             local entry = self.downloaded_stories[state.fiction_id]
             return DocSettings:open(entry and entry.epub_path or state.story.epub_path)
@@ -935,6 +966,10 @@ function M:rebuildEPUBWithNewChapters(state)
 
     if state.on_complete then
         state.on_complete()
+    elseif #state.new_chapters == 0 then
+        UIManager:show(InfoMessage:new{
+            text = T(_("Updated the cover for %1."), state.story.title),
+        })
     else
         UIManager:show(InfoMessage:new{
             text = T(_("Updated %1!\n\n+%2 new chapters\nTotal: %3 chapters\n\nReading position preserved."),
