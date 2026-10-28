@@ -20,6 +20,8 @@ crash.log
 
 # Testing
 test_*.lua
+!royalroad.koplugin/test_anubis.lua
+!royalroad.koplugin/test_http.lua
 
 .opencode
 .serena

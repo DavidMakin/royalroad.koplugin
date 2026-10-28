@@ -13,10 +13,12 @@ KOReader plugin for downloading web fiction as EPUB files:
 royalroad.koplugin/
 ├── _meta.lua          # Plugin metadata
 ├── main.lua           # Main implementation (loads modules below)
-├── test_repair.lua    # Standalone unit tests: lua test_repair.lua
+├── test_anubis.lua    # Standalone tests, run with KOReader's LuaJIT (see file header)
+├── test_http.lua      # fetchPage + Anubis flow against a fake server
 └── royalroad/
     ├── constants.lua      # URLs, timeouts, rate limits
     ├── http.lua           # fetchPage / fetchImage with retry + backoff
+    ├── anubis.lua         # Anubis proof-of-work solver (SHA-256 `fast` only)
     ├── parser.lua         # HTML/JSON parsing (story, chapters, content)
     ├── urls.lua           # Chapter identity keying (fiction_id:chapter_id)
     ├── downloader.lua     # Download orchestration
@@ -97,6 +99,13 @@ KOReader plugins follow a specific structure:
 - It can also be cleared manually without running a check, via the same helper: a `Clear new status` button in the story options dialog (`story_detail.lua`) and `Clear new-chapters badge` in the downloads-list hold menu (`downloads_ui.lua`). Both only appear while `unread_new_count > 0`.
 - `performUpdateCheck` (`updater.lua`) filters `story.excluded == true` stories out of `targets`, counts them in `excluded_count`, reports "Skipped N excluded stories" alongside the up-to-date message, and shows "All stories are excluded from updates." when every story is excluded.
 - KOReader `OverlapGroup` positions children via `overlap_align` (`"left"/"center"/"right"`), never via an `align` field; vertical offset is always top. Mirrored (RTL) UIs flip `"right"` to `"left"` automatically — do not compensate manually.
+
+### Bot Protection (Anubis)
+
+- Since 2026-10-26 royalroad.com answers plain clients with an Anubis challenge page and **HTTP 200**, so a status check alone treats it as content. `fetchPage` detects `<script id="anubis_challenge">`, solves it once (`anubis.lua`), and retries with the `techaro.lol-anubis-auth*` cookie, which it keeps in memory (`self._anubis_cookies`).
+- Only the SHA-256 `fast` algorithm with no extensions is solved (`slow` is deliberately rejected until it has been seen live) (hash of `randomData .. nonce` needs `difficulty` leading hex zeros). `argon2id` or `css-load` is reported as blocked, not parsed: KOReader ships no argon2 library, and one cannot be assumed on every device.
+- The solve blocks the UI thread, capped at 30 s (unmeasured on real e-ink hardware; revisit after a device test). A failed fetch shows a throttled "blocking automated access" message.
+- The pass-challenge request must not follow redirects, or the auth cookie on the 302 is lost.
 
 ### HTTP Fetching
 - Uses Lua's `socket.http` library
