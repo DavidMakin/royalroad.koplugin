@@ -43,6 +43,7 @@ jobs:
           zip -r ../royalroad.koplugin.zip royalroad.koplugin \
             -x '**/.git/*' \
             -x '**/.github/*' \
+            -x '**/test_*.lua' \
             -x '**/*.zip'
 
       - name: Get previous tag
