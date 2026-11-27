@@ -1,4 +1,5 @@
 local Blitbuffer      = require("ffi/blitbuffer")
+local Button          = require("ui/widget/button")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Device          = require("device")
 local DocSettings     = require("docsettings")
@@ -25,6 +26,21 @@ local GRID_CELL_GAP      = widgets.GRID_CELL_GAP
 local GRID_ROW_GAP       = widgets.GRID_ROW_GAP
 
 local M = {}
+
+-- Top entry of the hamburger menu: the most-used action, drawn 1.5x taller than a normal row.
+local function checkUpdatesButton(downloader, view_dialog)
+    local text = "\u{21BB} " .. _("Check for updates")
+    local probe = Button:new{ text = text }
+    local full = probe:getSize().h
+    local label = probe.label_widget and probe.label_widget:getSize().h or full
+    if probe.free then probe:free() end
+    return {
+        text = text,
+        align = "left",
+        height = math.floor(full * 1.5) - (full - label),
+        callback = function() UIManager:close(view_dialog) downloader:checkForUpdates() end,
+    }
+end
 
 function M:_buildManageItemTable()
     local filter_text = self._manage_filter or ""
@@ -454,9 +470,9 @@ function M:manageDownloads()
                             closeAndRefresh(view_dialog, menu)
                         end }},
                         {},
+                        {checkUpdatesButton(downloader, view_dialog)},
                         {{ text = "\u{2193} " .. _("Download story"),          align = "left", callback = function() UIManager:close(view_dialog) downloader:downloadStory() end }},
                         {{ text = "\u{2315} " .. _("Search Royal Road"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:searchStories() end }},
-                        {{ text = "\u{21BB} " .. _("Check for updates"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:checkForUpdates() end }},
                         {{ text = "\u{2B07} " .. _("Bulk import"),             align = "left", callback = function() UIManager:close(view_dialog) downloader:bulkImport() end }},
                         {{ text = "\u{2B06} " .. _("Export reading list"),     align = "left", callback = function() UIManager:close(view_dialog) downloader:exportReadingList() end }},
                         {{ text = "\u{2399} " .. _("Open downloads folder"),   align = "left", callback = function() UIManager:close(view_dialog) downloader:openDownloadsFolder() end }},
@@ -554,9 +570,9 @@ function M:manageDownloads()
                     {{ text = "\u{25A6} " .. _("Switch to mosaic view"),   align = "left", callback = function() downloader.manage_view_mode = "mosaic" closeAndRefresh(view_dialog, menu) end }},
                     {{ text = "\u{2195} " .. _("Sort by…"),                align = "left", callback = function() UIManager:close(view_dialog) open_sort(anchor, menu) end }},
                     {},
+                    {checkUpdatesButton(downloader, view_dialog)},
                     {{ text = "\u{2193} " .. _("Download story"),          align = "left", callback = function() UIManager:close(view_dialog) downloader:downloadStory() end }},
                     {{ text = "\u{2315} " .. _("Search Royal Road"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:searchStories() end }},
-                    {{ text = "\u{21BB} " .. _("Check for updates"),       align = "left", callback = function() UIManager:close(view_dialog) downloader:checkForUpdates() end }},
                     {{ text = "\u{2B07} " .. _("Bulk import"),             align = "left", callback = function() UIManager:close(view_dialog) downloader:bulkImport() end }},
                     {{ text = "\u{2B06} " .. _("Export reading list"),     align = "left", callback = function() UIManager:close(view_dialog) downloader:exportReadingList() end }},
                     {{ text = "\u{2399} " .. _("Open downloads folder"),   align = "left", callback = function() UIManager:close(view_dialog) downloader:openDownloadsFolder() end }},
