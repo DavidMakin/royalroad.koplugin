@@ -133,7 +133,8 @@ function M:clearNewBadges(only)
     return cleared
 end
 
-function M:checkForUpdates()
+-- opts.keep_badges: automatic check, must not acknowledge the "+N new" ribbons.
+function M:checkForUpdates(opts)
     if self:countDownloadedStories() == 0 then
         UIManager:show(InfoMessage:new{
             text = _("No downloaded stories to check.\n\nDownload a story first, then you can check for updates."),
@@ -142,7 +143,7 @@ function M:checkForUpdates()
     end
 
     local ok, err = pcall(function()
-        self:performUpdateCheck()
+        self:performUpdateCheck(opts)
     end)
     if not ok then
         logger.err("Royal Road: Update check failed:", err)
@@ -152,9 +153,9 @@ function M:checkForUpdates()
     end
 end
 
-function M:performUpdateCheck()
+function M:performUpdateCheck(opts)
     NetworkMgr:runWhenOnline(function()
-        self:clearNewBadges()
+        if not (opts and opts.keep_badges) then self:clearNewBadges() end
 
         local stories_with_updates = {}
         local errors = {}

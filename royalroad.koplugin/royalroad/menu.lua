@@ -92,7 +92,7 @@ function M:addToMainMenu(menu_items)
         text = _("Royal Road Downloader"),
         keep_menu_open = true,
         callback = function()
-            self:manageDownloads()
+            self:onShowRoyalRoadMenu()
         end,
     }
 end
@@ -205,6 +205,18 @@ function M:showSettings()
                     self.auto_add_to_collection = v
                     if v then self:addAllStoriesToCollection() end
                 end)
+            end,
+        },
+        {
+            text_func = function()
+                return T(_("Check for updates on open: %1"), self.auto_check_updates and _("On") or _("Off"))
+            end,
+            keep_menu_open = true,
+            callback = function()
+                showChoice(_("Check for updates when opening Royal Road Downloader"), {
+                    { true,  _("On") },
+                    { false, _("Off") },
+                }, function() return self.auto_check_updates end, function(v) self.auto_check_updates = v end)
             end,
         },
         {

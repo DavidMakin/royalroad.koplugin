@@ -2,6 +2,7 @@ local DataStorage    = require("datastorage")
 local Device         = require("device")
 local Dispatcher     = require("dispatcher")
 local LuaSettings    = require("luasettings")
+local NetworkMgr     = require("ui/network/manager")
 local UIManager      = require("ui/uimanager")
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local lfs            = require("libs/libkoreader-lfs")
@@ -51,6 +52,10 @@ end
 
 function RoyalRoadDownloader:onShowRoyalRoadMenu()
     self:manageDownloads()
+    -- Only when already online: runWhenOnline would pop a Wi-Fi prompt on every open.
+    if self.auto_check_updates and NetworkMgr:isOnline() and self:countDownloadedStories() > 0 then
+        self:checkForUpdates({ keep_badges = true })
+    end
 end
 
 function RoyalRoadDownloader:onRoyalRoadCheckForUpdates()
@@ -81,6 +86,7 @@ function RoyalRoadDownloader:loadSettings()
     self.mosaic_hide_title  = self.settings:readSetting("mosaic_hide_title", false)
     self.auto_add_to_collection = self.settings:readSetting("auto_add_to_collection", false)
     self.collection_name    = self.settings:readSetting("collection_name", C.DEFAULTS.COLLECTION_NAME)
+    self.auto_check_updates = self.settings:readSetting("auto_check_updates", false)
     self._story_count = nil
     local dirty = false
     for fiction_id, story in pairs(self.downloaded_stories) do
@@ -119,6 +125,7 @@ function RoyalRoadDownloader:saveSettings()
     self.settings:saveSetting("mosaic_hide_title", self.mosaic_hide_title)
     self.settings:saveSetting("auto_add_to_collection", self.auto_add_to_collection)
     self.settings:saveSetting("collection_name",        self.collection_name)
+    self.settings:saveSetting("auto_check_updates",     self.auto_check_updates)
     self.settings:flush()
     self._save_pending = false
 end
