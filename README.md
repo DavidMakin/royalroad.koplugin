@@ -1,6 +1,7 @@
 # Royal Road Downloader — KOReader Plugin
 
 [![Release](https://img.shields.io/github/v/release/DavidMakin/royalroad.koplugin?style=flat&label=release)](https://github.com/DavidMakin/royalroad.koplugin/releases/latest)
+![Coded with AI](https://img.shields.io/badge/Coded_with-AI-8a2be2?style=for-the-badge)
 
 Download web fiction from [Royal Road](https://www.royalroad.com/) directly to your e-reader as EPUB files, ready to read offline.
 
